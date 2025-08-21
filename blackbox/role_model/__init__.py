@@ -1,0 +1,1 @@
+# Role Model Module for TrendWatching Bot 
