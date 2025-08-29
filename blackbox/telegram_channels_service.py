@@ -349,5 +349,209 @@ class TelegramChannelsService:
             logger.error(f"Ошибка при получении активных дайджестов: {str(e)}")
             return []
 
+    def get_active_digests_by_channel(self, channel_id: int) -> List[Dict[str, Any]]:
+        """
+        Получает активные дайджесты для конкретного канала
+        
+        Args:
+            channel_id: ID канала
+            
+        Returns:
+            List[Dict[str, Any]]: Список активных дайджестов канала
+        """
+        try:
+            channel = self.get_channel_by_id(channel_id)
+            if not channel or not channel.digests:
+                return []
+            
+            active_digests = [
+                {
+                    "id": digest.id,
+                    "category": digest.category,
+                    "time": digest.time,
+                    "is_active": digest.is_active
+                }
+                for digest in channel.digests
+                if digest.is_active
+            ]
+            
+            logger.info(f"Найдено {len(active_digests)} активных дайджестов для канала {channel_id}")
+            return active_digests
+            
+        except Exception as e:
+            logger.error(f"Ошибка при получении активных дайджестов канала {channel_id}: {str(e)}")
+            return []
+
+    def create_digest(self, channel_id: int, category: str, time: str, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Создает новый дайджест для канала
+        
+        Args:
+            channel_id: ID канала
+            category: Категория дайджеста
+            time: Время отправки
+            user_id: ID пользователя, создавшего дайджест
+            
+        Returns:
+            Optional[Dict[str, Any]]: Данные созданного дайджеста или None
+        """
+        try:
+            digest_id = str(uuid.uuid4())
+            digest_data = {
+                "id": digest_id,
+                "category": category,
+                "time": time,
+                "is_active": True,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "created_by": user_id
+            }
+            
+            result = self.collection.update_one(
+                {"id": channel_id},
+                {
+                    "$push": {"digests": digest_data},
+                    "$set": {"updated_at": datetime.utcnow()}
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Дайджест {digest_id} создан для канала {channel_id}")
+                return digest_data
+            else:
+                logger.error(f"Не удалось создать дайджест для канала {channel_id}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Ошибка при создании дайджеста: {str(e)}")
+            return None
+
+    def update_digest_time(self, digest_id: str, new_time: str) -> bool:
+        """
+        Обновляет время дайджеста
+        
+        Args:
+            digest_id: ID дайджеста
+            new_time: Новое время
+            
+        Returns:
+            bool: True если успешно обновлен, False в противном случае
+        """
+        try:
+            result = self.collection.update_one(
+                {"digests.id": digest_id},
+                {
+                    "$set": {
+                        "digests.$.time": new_time,
+                        "digests.$.updated_at": datetime.utcnow(),
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Время дайджеста {digest_id} обновлено на {new_time}")
+                return True
+            else:
+                logger.error(f"Дайджест {digest_id} не найден")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении времени дайджеста: {str(e)}")
+            return False
+
+    def update_digest_category(self, digest_id: str, new_category: str) -> bool:
+        """
+        Обновляет категорию дайджеста
+        
+        Args:
+            digest_id: ID дайджеста
+            new_category: Новая категория
+            
+        Returns:
+            bool: True если успешно обновлен, False в противном случае
+        """
+        try:
+            result = self.collection.update_one(
+                {"digests.id": digest_id},
+                {
+                    "$set": {
+                        "digests.$.category": new_category,
+                        "digests.$.updated_at": datetime.utcnow(),
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Категория дайджеста {digest_id} обновлена на {new_category}")
+                return True
+            else:
+                logger.error(f"Дайджест {digest_id} не найден")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении категории дайджеста: {str(e)}")
+            return False
+
+    def get_digest_by_id(self, digest_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Получает дайджест по ID
+        
+        Args:
+            digest_id: ID дайджеста
+            
+        Returns:
+            Optional[Dict[str, Any]]: Данные дайджеста или None
+        """
+        try:
+            channel = self.collection.find_one(
+                {"digests.id": digest_id},
+                {"digests.$": 1, "id": 1, "title": 1}
+            )
+            
+            if channel and channel.get("digests"):
+                digest = channel["digests"][0]
+                digest["channel_id"] = channel["id"]
+                digest["channel_title"] = channel.get("title", "")
+                return digest
+            else:
+                logger.error(f"Дайджест {digest_id} не найден")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Ошибка при получении дайджеста {digest_id}: {str(e)}")
+            return None
+
+    def delete_digest(self, digest_id: str) -> bool:
+        """
+        Удаляет дайджест по ID
+        
+        Args:
+            digest_id: ID дайджеста
+            
+        Returns:
+            bool: True если успешно удален, False в противном случае
+        """
+        try:
+            result = self.collection.update_one(
+                {"digests.id": digest_id},
+                {
+                    "$pull": {"digests": {"id": digest_id}},
+                    "$set": {"updated_at": datetime.utcnow()}
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Дайджест {digest_id} удален")
+                return True
+            else:
+                logger.error(f"Дайджест {digest_id} не найден")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Ошибка при удалении дайджеста: {str(e)}")
+            return False
+
 # Создаем глобальный экземпляр сервиса
 telegram_channels_service = TelegramChannelsService() 

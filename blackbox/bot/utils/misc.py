@@ -506,3 +506,11 @@ def require_permission(permission: str):
             return await func(event, *args, **kwargs)
         return wrapper
     return decorator
+
+def escape_markdown(text: str) -> str:
+    """Экранирует специальные Markdown символы"""
+    escape_chars = r'\*_~`[]>#+-=|{}.!'
+    for char in escape_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+    

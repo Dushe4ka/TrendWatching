@@ -616,6 +616,9 @@ def get_digest_edit_category_keyboard(categories: List[str], channel_id: int, di
     """Клавиатура для выбора категории при редактировании дайджеста"""
     from bot.utils.callback_utils import create_digest_callback
     
+    print(f"🔍 DEBUG: get_digest_edit_category_keyboard - channel_id={channel_id}, digest_id={digest_id}")
+    print(f"🔍 DEBUG: get_digest_edit_category_keyboard - типы: channel_id={type(channel_id)}, digest_id={type(digest_id)}")
+    
     keyboard_rows = []
     
     # Группируем категории по 2 в ряд
@@ -646,7 +649,7 @@ def get_digest_edit_category_keyboard(categories: List[str], channel_id: int, di
     
     return types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-def get_digest_time_input_keyboard(channel_id: int, category: str):
+def get_digest_time_input_keyboard(channel_id: int):
     """Клавиатура для ввода времени дайджеста"""
     from bot.utils.callback_utils import create_channel_callback
     
@@ -709,6 +712,9 @@ def get_digest_info_keyboard(channel_id: int, digest_id: str):
     """Клавиатура для информации о конкретном дайджесте"""
     from bot.utils.callback_utils import create_digest_callback, create_channel_callback
     
+    print(f"🔍 DEBUG: get_digest_info_keyboard - channel_id={channel_id}, digest_id={digest_id}")
+    print(f"🔍 DEBUG: get_digest_info_keyboard - типы: channel_id={type(channel_id)}, digest_id={type(digest_id)}")
+    
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [
             types.InlineKeyboardButton(text="🕐 Изменить время", callback_data=create_digest_callback("edit_digest_time", channel_id, digest_id))
@@ -731,6 +737,9 @@ def get_digest_info_keyboard(channel_id: int, digest_id: str):
 def get_confirm_delete_digest_keyboard(channel_id: int, digest_id: str):
     """Клавиатура для подтверждения удаления дайджеста"""
     from bot.utils.callback_utils import create_digest_callback
+    
+    print(f"🔍 DEBUG: get_confirm_delete_digest_keyboard - channel_id={channel_id}, digest_id={digest_id}")
+    print(f"🔍 DEBUG: get_confirm_delete_digest_keyboard - типы: channel_id={type(channel_id)}, digest_id={type(digest_id)}")
     
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [

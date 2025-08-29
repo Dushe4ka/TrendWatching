@@ -50,6 +50,8 @@ def parse_short_callback(callback_data: str) -> Tuple[str, Dict[str, Any]]:
         raise ValueError(f"Callback data не найден: {callback_data}")
     
     cached_data = _callback_cache[callback_data]
+    print(f"🔍 DEBUG: parse_short_callback - callback_data={callback_data}, cached_data={cached_data}")
+    
     return cached_data['action'], cached_data['data']
 
 def cleanup_old_callbacks(max_age_hours: int = 24):
@@ -77,6 +79,8 @@ def create_channel_callback(action: str, channel_id: int) -> str:
 
 def create_digest_callback(action: str, channel_id: int, digest_id: str = None, **kwargs) -> str:
     """Создает callback для действий с дайджестом"""
+    print(f"🔍 DEBUG: create_digest_callback - входные параметры: action={action}, channel_id={channel_id}, digest_id={digest_id}, kwargs={kwargs}")
+    
     data = {'channel_id': channel_id}
     if digest_id:
         data['digest_id'] = digest_id
@@ -84,6 +88,8 @@ def create_digest_callback(action: str, channel_id: int, digest_id: str = None, 
     # Добавляем дополнительные параметры
     for key, value in kwargs.items():
         data[key] = value
+    
+    print(f"🔍 DEBUG: create_digest_callback - итоговые данные: data={data}")
     
     return create_short_callback(action, **data)
 

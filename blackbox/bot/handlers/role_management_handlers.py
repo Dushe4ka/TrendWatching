@@ -2,7 +2,7 @@ from aiogram import Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from bot.utils.misc import check_permission, get_user_info, has_admin_permissions
+from bot.utils.misc import check_permission, get_user_info, has_admin_permissions, escape_markdown
 from bot.keyboards.inline_keyboards import (
     get_role_management_keyboard,
     get_role_edit_keyboard,
@@ -249,14 +249,14 @@ async def permission_callback(callback_query: types.CallbackQuery, state: FSMCon
             
             if success:
                 await callback_query.message.edit_text(
-                    f"✅ Роль '{role_name}' {action_text} успешно!\n\n"
-                    f"📝 Описание: {description}\n"
+                    f"✅ Роль '{escape_markdown(role_name)}' {action_text} успешно!\n\n"
+                    f"📝 Описание: {escape_markdown(description)}\n"
                     f"🔑 Разрешений: {sum(permissions.values())}",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             else:
                 await callback_query.message.edit_text(
-                    f"❌ Ошибка при {action_text} роли '{role_name}'.",
+                    f"❌ Ошибка при {action_text} роли '{escape_markdown(role_name)}'.",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             
@@ -276,7 +276,7 @@ async def permission_callback(callback_query: types.CallbackQuery, state: FSMCon
         
         if role_name:
             await callback_query.message.edit_text(
-                f"🔧 Редактирование роли: {role_name}\n\nВыберите действие:",
+                f"🔧 Редактирование роли: {escape_markdown(role_name)}\n\nВыберите действие:",
                 reply_markup=get_role_edit_keyboard(role_name)
             )
             # Сохраняем название роли в состоянии
@@ -304,7 +304,7 @@ async def permission_callback(callback_query: types.CallbackQuery, state: FSMCon
                 # Возвращаемся к вводу описания
                 await state.set_state(RoleManagementStates.waiting_for_role_description)
                 await callback_query.message.edit_text(
-                    f"📝 Роль: {role_name}\n\n"
+                    f"📝 Роль: {escape_markdown(role_name)}\n\n"
                     "Введите описание роли:",
                     reply_markup=get_role_creation_keyboard()
                 )
@@ -499,7 +499,7 @@ async def select_role_to_edit_callback(callback_query: types.CallbackQuery, stat
         
         if not role_info:
             await callback_query.message.edit_text(
-                f"❌ Роль '{role_name}' не найдена.",
+                f"❌ Роль '{escape_markdown(role_name)}' не найдена.",
                 reply_markup=get_main_menu_back_keyboard()
             )
             return
@@ -511,15 +511,15 @@ async def select_role_to_edit_callback(callback_query: types.CallbackQuery, stat
         permissions = role_info["permissions"]
         enabled_permissions = [perm for perm, enabled in permissions.items() if enabled]
         
-        role_text = f"🔧 Редактирование роли: {role_name}\n\n"
-        role_text += f"📝 Описание: {role_info['description']}\n"
+        role_text = f"🔧 Редактирование роли: {escape_markdown(role_name)}\n\n"
+        role_text += f"📝 Описание: {escape_markdown(role_info['description'])}\n"
         role_text += f"🔑 Разрешений: {len(enabled_permissions)}\n\n"
         
         if enabled_permissions:
             role_text += "✅ Разрешенные функции:\n"
             for perm in enabled_permissions:
                 description = await role_manager.get_permission_description(perm)
-                role_text += f"   • {description}\n"
+                role_text += f"   • {escape_markdown(description)}\n"
         
         keyboard = get_role_edit_keyboard(role_name)
         await callback_query.message.edit_text(role_text, reply_markup=keyboard)
@@ -590,7 +590,7 @@ async def edit_role_options_callback(callback_query: types.CallbackQuery, state:
             keyboard = get_permission_keyboard(available_permissions, current_permissions)
             
             await callback_query.message.edit_text(
-                f"🔧 Редактирование разрешений для роли '{role_name}'\n\n"
+                f"🔧 Редактирование разрешений для роли '{escape_markdown(role_name)}'\n\n"
                 f"Выберите разрешения:",
                 reply_markup=keyboard
             )
@@ -621,7 +621,7 @@ async def edit_role_options_callback(callback_query: types.CallbackQuery, state:
             keyboard = get_confirm_keyboard(f"delete_role_{role_name}")
             
             await callback_query.message.edit_text(
-                f"⚠️ Удаление роли '{role_name}'\n\n"
+                f"⚠️ Удаление роли '{escape_markdown(role_name)}'\n\n"
                 f"Вы уверены, что хотите удалить эту роль?\n"
                 f"Это действие нельзя отменить.",
                 reply_markup=keyboard
@@ -691,13 +691,13 @@ async def edit_permissions_callback(callback_query: types.CallbackQuery, state: 
             
             if success:
                 await callback_query.message.edit_text(
-                    f"✅ Разрешения для роли '{role_name}' обновлены успешно!\n\n"
+                    f"✅ Разрешения для роли '{escape_markdown(role_name)}' обновлены успешно!\n\n"
                     f"🔑 Разрешений: {sum(permissions.values())}",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             else:
                 await callback_query.message.edit_text(
-                    f"❌ Ошибка при обновлении роли '{role_name}'.",
+                    f"❌ Ошибка при обновлении роли '{escape_markdown(role_name)}'.",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             
@@ -804,12 +804,12 @@ async def delete_role_confirm_callback(callback_query: types.CallbackQuery, stat
             
             if success:
                 await callback_query.message.edit_text(
-                    f"✅ Роль '{role_name}' удалена успешно!",
+                    f"✅ Роль '{escape_markdown(role_name)}' удалена успешно!",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             else:
                 await callback_query.message.edit_text(
-                    f"❌ Ошибка при удалении роли '{role_name}'.",
+                    f"❌ Ошибка при удалении роли '{escape_markdown(role_name)}'.",
                     reply_markup=get_main_menu_back_keyboard()
                 )
             
@@ -906,8 +906,8 @@ async def list_roles_callback(callback_query: types.CallbackQuery):
         
         for i, role in enumerate(roles, 1):
             permissions_count = sum(1 for perm, enabled in role.permissions.items() if enabled)
-            roles_text += f"{i}. **{role.role_name}**\n"
-            roles_text += f"   📝 {role.description}\n"
+            roles_text += f"{i}. **{escape_markdown(role.role_name)}**\n"
+            roles_text += f"   📝 {escape_markdown(role.description)}\n"
             roles_text += f"   🔑 Разрешений: {permissions_count}\n\n"
         
         await callback_query.message.edit_text(

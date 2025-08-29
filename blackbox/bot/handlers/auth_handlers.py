@@ -56,7 +56,7 @@ async def add_new_account_callback(callback_query: types.CallbackQuery, state: F
     await callback_query.message.edit_text(
         "📱 Добавление нового Telegram аккаунта\n\n"
         "Введите номер телефона в формате:\n"
-        "+7XXXXXXXXXX\n\n"
+        "+XXXXXXXXXXX\n\n"
         "Например: +79091234567",
         reply_markup=get_main_menu_back_keyboard()
     )
@@ -72,10 +72,10 @@ async def process_phone_number(message: types.Message, state: FSMContext):
     phone_number = message.text.strip()
     
     # Проверяем формат номера
-    if not phone_number.startswith('+') or len(phone_number) < 10:
+    if not phone_number.startswith('+'):
         await message.answer(
             "❌ Неверный формат номера телефона!\n\n"
-            "Введите номер в формате: +7XXXXXXXXXX\n"
+            "Введите номер в формате: +XXXXXXXXXXX\n"
             "Например: +79091234567"
         )
         return
@@ -710,7 +710,7 @@ async def delete_account_callback(callback_query: types.CallbackQuery, state: FS
     await callback_query.message.edit_text(
         "🗑️ Удаление Telegram аккаунта\n\n"
         "Введите номер телефона аккаунта для удаления:\n"
-        "+7XXXXXXXXXX\n\n"
+        "+XXXXXXXXXXX\n\n"
         "Например: +79091234567\n\n"
         "⚠️ Внимание: Это действие удалит сессию и все связанные с ней данные!",
         reply_markup=get_main_menu_back_keyboard()
@@ -727,10 +727,10 @@ async def process_delete_phone_number(message: types.Message, state: FSMContext)
     phone_number = message.text.strip()
     
     # Проверяем формат номера
-    if not phone_number.startswith('+') or len(phone_number) < 10:
+    if not phone_number.startswith('+'):
         await message.answer(
             "❌ Неверный формат номера телефона!\n\n"
-            "Введите номер в формате: +7XXXXXXXXXX\n"
+            "Введите номер в формате: +XXXXXXXXXXX\n"
             "Например: +79091234567"
         )
         return

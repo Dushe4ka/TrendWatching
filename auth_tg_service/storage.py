@@ -21,6 +21,10 @@ async def get_sessions():
 async def get_session_by_phone(phone_number: str):
     return await sessions_collection.find_one({"phone_number": phone_number})
 
+async def get_session_by_id(session_id: str):
+    """Получить сессию по session_id"""
+    return await sessions_collection.find_one({"session_id": session_id})
+
 async def update_session(session_id: str, update_data: dict):
     return await sessions_collection.update_one({"session_id": session_id}, {"$set": update_data})
 

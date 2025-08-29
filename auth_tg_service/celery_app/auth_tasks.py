@@ -337,7 +337,20 @@ def distribute_channels_task(channels: list):
     import asyncio
     from storage import get_sessions, update_session, create_channel_binding
     from blackbox_storage import get_all_channels, mark_channel_assigned
+    
+    # Проверяем, не выполняется ли уже задача
+    task_key = "distribute_channels_running"
+    if redis_client.get(task_key):
+        log.warning("⚠️ Задача distribute_channels уже выполняется, пропускаем")
+        return {"status": "already_running", "message": "Задача уже выполняется"}
+    
+    # Устанавливаем флаг выполнения
+    redis_client.setex(task_key, 300, "1")  # 5 минут TTL
+    
     async def inner():
+        # Импортируем get_session_by_id здесь, чтобы избежать UnboundLocalError
+        from storage import get_session_by_id
+        
         # Если channels пустой — берём из sources
         channels_to_distribute = channels
         sources_map = {}  # source_id -> channel (если из БД)
@@ -400,11 +413,42 @@ def distribute_channels_task(channels: list):
                 sid = session_id_list[idx % len(session_id_list)]
                 if session_slots[sid] > 0:
                     await create_channel_binding({"session_id": sid, "chat_id": channel})
-                    s = next(x for x in sessions if x['session_id'] == sid)
-                    s.setdefault('channels', []).append(channel)
-                    await update_session(sid, {"channels": s['channels']})
+                    
+                    # Получаем актуальные каналы из базы данных для этой сессии
+                    from storage import get_session_by_id
+                    try:
+                        # Пытаемся получить сессию по ID
+                        target_session = await get_session_by_id(sid)
+                        if target_session:
+                            current_channels = target_session.get('channels', [])
+                        else:
+                            # Если не удалось получить, начинаем с пустого списка
+                            current_channels = []
+                            log.warning(f"⚠️ Не удалось получить сессию {sid} из базы данных")
+                    except Exception as e:
+                        log.warning(f"⚠️ Ошибка при получении сессии {sid}: {e}")
+                        current_channels = []
+                    
+                    # Проверяем, нет ли уже такого канала
+                    if channel in current_channels:
+                        log.warning(f"⚠️ Канал {channel} уже существует в сессии {sid}, пропускаем")
+                        continue
+                    
+                    # Добавляем новый канал
+                    current_channels.append(channel)
+                    
+                    # Обновляем сессию в базе данных
+                    result = await update_session(sid, {"channels": current_channels})
+                    
+                    # Проверяем, что обновление прошло успешно
+                    if result.modified_count > 0:
+                        log.info(f"✅ Канал {channel} успешно добавлен в сессию {sid}")
+                    else:
+                        log.warning(f"⚠️ Канал {channel} не был добавлен в сессию {sid}")
+                    
                     session_slots[sid] -= 1
                     distributed[sid].append(channel)
+                    
                     # Если канал из sources — обновляем статус
                     if channel in sources_map:
                         await mark_channel_assigned(sources_map[channel], sid)
@@ -421,6 +465,9 @@ def distribute_channels_task(channels: list):
             'not_loaded': not_loaded,
             'total_slots': total_slots,
         }
+    
+    # Очищаем флаг выполнения
+    redis_client.delete(task_key)
     return run_async(inner)
 
 @celery_app.task
@@ -537,11 +584,23 @@ def clean_duplicate_channels_task():
                 
                 # Если были дубликаты, обновляем сессию
                 if len(unique_channels) != len(channels):
-                    await update_session(session['session_id'], {"channels": unique_channels})
-                    cleaned_count += len(channels) - len(unique_channels)
-                    log.info(f"Очищено {len(channels) - len(unique_channels)} дубликатов в сессии {session['session_id']}")
+                    result = await update_session(session['session_id'], {"channels": unique_channels})
+                    if result.modified_count > 0:
+                        cleaned_count += len(channels) - len(unique_channels)
+                        log.info(f"Очищено {len(channels) - len(unique_channels)} дубликатов в сессии {session['session_id']}")
+                    else:
+                        log.warning(f"⚠️ Не удалось обновить сессию {session['session_id']} при очистке дубликатов")
         
         log.info(f"Всего очищено {cleaned_count} дубликатов")
+        
+        # Дополнительная проверка: получаем актуальные данные из базы данных
+        log.info("🔍 Проверяем актуальные данные после очистки дубликатов...")
+        updated_sessions = await get_sessions()
+        for session in updated_sessions:
+            phone = session.get('phone_number', 'Unknown')
+            actual_channels = session.get('channels', [])
+            log.info(f"   📱 {phone}: {len(actual_channels)} каналов")
+        
         return {"cleaned_duplicates": cleaned_count}
     return run_async(inner)
 
@@ -696,9 +755,22 @@ def redistribute_all_channels_task():
     import asyncio
     from storage import get_sessions, update_session, create_channel_binding
     from blackbox_storage import get_all_channels, mark_channel_assigned
+    
+    # Проверяем, не выполняется ли уже задача
+    task_key = "redistribute_all_channels_running"
+    if redis_client.get(task_key):
+        log.warning("⚠️ Задача redistribute_all_channels уже выполняется, пропускаем")
+        return {"status": "already_running", "message": "Задача уже выполняется"}
+    
+    # Устанавливаем флаг выполнения
+    redis_client.setex(task_key, 300, "1")  # 5 минут TTL
+    
     async def inner():
         try:
             log.info("🔄 Начинаем полное перераспределение всех каналов")
+            
+            # Импортируем get_session_by_id здесь, чтобы избежать UnboundLocalError
+            from storage import get_session_by_id
             
             # Получаем все источники
             sources = await get_all_channels()
@@ -734,8 +806,11 @@ def redistribute_all_channels_task():
             
             # Очищаем все каналы из всех сессий
             for session in sessions:
-                await update_session(session['session_id'], {"channels": []})
-                log.info(f"🧹 Очищены каналы из сессии {session['phone_number']}")
+                result = await update_session(session['session_id'], {"channels": []})
+                if result.modified_count > 0:
+                    log.info(f"🧹 Очищены каналы из сессии {session['phone_number']}")
+                else:
+                    log.warning(f"⚠️ Не удалось очистить каналы из сессии {session['phone_number']}")
             
             # Сбрасываем все привязки в blackbox_db
             sources_collection = blackbox_db["sources"]
@@ -744,6 +819,17 @@ def redistribute_all_channels_task():
                 {"$unset": {"session_id": "", "assigned_at": ""}}
             )
             log.info("🧹 Сброшены все привязки каналов в blackbox_db")
+            
+            # Дополнительная проверка: убеждаемся, что каналы действительно очищены
+            log.info("🔍 Проверяем, что каналы действительно очищены...")
+            for session in sessions:
+                updated_session = await get_session_by_id(session['session_id'])
+                if updated_session:
+                    actual_channels = updated_session.get('channels', [])
+                    if actual_channels:
+                        log.warning(f"⚠️ Сессия {session['phone_number']} все еще содержит каналы: {actual_channels}")
+                    else:
+                        log.info(f"✅ Сессия {session['phone_number']} успешно очищена")
             
             # Распределяем все каналы заново равномерно
             session_slots = {
@@ -761,11 +847,42 @@ def redistribute_all_channels_task():
                 
                 if session_slots[target_session_id] > 0:
                     await create_channel_binding({"session_id": target_session_id, "chat_id": channel})
-                    s = next(x for x in sessions if x['session_id'] == target_session_id)
-                    s.setdefault('channels', []).append(channel)
-                    await update_session(target_session_id, {"channels": s['channels']})
+                    
+                    # Получаем актуальные каналы из базы данных для этой сессии
+                    from storage import get_session_by_id
+                    try:
+                        # Пытаемся получить сессию по ID
+                        target_session = await get_session_by_id(target_session_id)
+                        if target_session:
+                            current_channels = target_session.get('channels', [])
+                        else:
+                            # Если не удалось получить, начинаем с пустого списка
+                            current_channels = []
+                            log.warning(f"⚠️ Не удалось получить сессию {target_session_id} из базы данных")
+                    except Exception as e:
+                        log.warning(f"⚠️ Ошибка при получении сессии {target_session_id}: {e}")
+                        current_channels = []
+                    
+                    # Проверяем, нет ли уже такого канала
+                    if channel in current_channels:
+                        log.warning(f"⚠️ Канал {channel} уже существует в сессии {target_session_id}, пропускаем")
+                        continue
+                    
+                    # Добавляем новый канал
+                    current_channels.append(channel)
+                    
+                    # Обновляем сессию в базе данных
+                    result = await update_session(target_session_id, {"channels": current_channels})
+                    
+                    # Проверяем, что обновление прошло успешно
+                    if result.modified_count > 0:
+                        log.info(f"✅ Канал {channel} успешно добавлен в сессию {target_session_id}")
+                    else:
+                        log.warning(f"⚠️ Канал {channel} не был добавлен в сессию {target_session_id}")
+                    
                     session_slots[target_session_id] -= 1
                     distributed[target_session_id].append(channel)
+                    
                     # Если канал из sources — обновляем статус
                     if channel in sources_map:
                         await mark_channel_assigned(sources_map[channel], target_session_id)
@@ -786,14 +903,63 @@ def redistribute_all_channels_task():
                 phone = session['phone_number']
                 log.info(f"   📱 {phone}: {len(channels)} каналов")
             
+            # Дополнительная проверка: получаем актуальные данные из базы данных
+            log.info("🔍 Проверяем актуальные данные в базе данных...")
+            updated_sessions = await get_sessions()
+            for session in updated_sessions:
+                phone = session.get('phone_number', 'Unknown')
+                actual_channels = session.get('channels', [])
+                expected_channels = distributed.get(session['session_id'], [])
+                log.info(f"   📱 {phone}: ожидается {len(expected_channels)}, фактически {len(actual_channels)} каналов")
+                if len(actual_channels) != len(expected_channels):
+                    log.warning(f"   ⚠️ Несоответствие для {phone}: ожидается {len(expected_channels)}, фактически {len(actual_channels)}")
+                    log.warning(f"   📋 Ожидаемые каналы: {expected_channels}")
+                    log.warning(f"   📋 Фактические каналы: {actual_channels}")
+                    
+                    # Попытка исправить несоответствие
+                    if len(actual_channels) == 0 and len(expected_channels) > 0:
+                        log.info(f"   🔧 Попытка исправить несоответствие для {phone}...")
+                        try:
+                            result = await update_session(session['session_id'], {"channels": expected_channels})
+                            if result.modified_count > 0:
+                                log.info(f"   ✅ Несоответствие исправлено для {phone}")
+                            else:
+                                log.warning(f"   ❌ Не удалось исправить несоответствие для {phone}")
+                        except Exception as e:
+                            log.error(f"   ❌ Ошибка при исправлении несоответствия для {phone}: {e}")
+                else:
+                    log.info(f"   ✅ {phone}: каналы распределены корректно")
+                    
+                    # Проверяем на дубликаты
+                    if len(actual_channels) != len(set(actual_channels)):
+                        log.warning(f"   ⚠️ Обнаружены дубликаты в {phone}: {actual_channels}")
+                    else:
+                        log.info(f"   ✅ {phone}: дубликатов не обнаружено")
+            
+            # Финальная проверка: убеждаемся, что все каналы сохранены
+            log.info("🔍 Финальная проверка сохранения каналов...")
+            final_sessions = await get_sessions()
+            total_saved_channels = sum(len(s.get('channels', [])) for s in final_sessions)
+            total_expected_channels = sum(len(channels) for channels in distributed.values())
+            
+            if total_saved_channels == total_expected_channels:
+                log.info(f"✅ Все каналы успешно сохранены: {total_saved_channels}")
+            else:
+                log.warning(f"⚠️ Несоответствие в количестве сохраненных каналов: ожидается {total_expected_channels}, фактически {total_saved_channels}")
+            
             return {
                 'distributed': distributed,
                 'not_loaded': not_loaded,
                 'total_slots': sum(session_slots.values()),
+                'total_saved_channels': total_saved_channels,
+                'total_expected_channels': total_expected_channels,
             }
             
         except Exception as e:
             log.error(f"❌ Ошибка при полном перераспределении каналов: {e}")
             raise
+        finally:
+            # Очищаем флаг выполнения
+            redis_client.delete(task_key)
     
     return run_async(inner) 

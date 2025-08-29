@@ -771,51 +771,9 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(role_management_callback, lambda c: c.data == "role_management")
     dp.callback_query.register(telegram_channels_menu_callback, lambda c: c.data == "telegram_channels_menu")
     
-    # Добавляем хендлеры для Telegram каналов
-    from bot.handlers.telegram_channels_handlers import (
-        telegram_channels_list_callback,
-        telegram_channel_info_callback,
-        add_digest_callback,
-        edit_digests_callback,
-        digest_category_selected_callback,
-        digest_info_callback,
-        edit_digest_time_callback,
-        edit_digest_category_callback,
-        delete_digest_callback,
-        confirm_delete_digest_callback,
-        process_digest_time,
-        process_digest_edit_time,
-        process_digest_edit_category,
-        process_digest_time_no_state,
-        process_digest_edit_time_no_state,
-        process_digest_edit_category_no_state,
-        edit_digest_category_select_callback,
-        test_digest_callback,
-        schedule_digests_now_callback,
-        initialize_schedule_callback,
-        check_schedule_callback
-    )
-    dp.callback_query.register(telegram_channels_list_callback, lambda c: c.data == "telegram_channels_list")
-    
-    # Новый фильтр: ловим только короткие callback_data, которые реально относятся к каналам
-    dp.callback_query.register(
-        telegram_channel_info_callback,
-        lambda c: c.data in _callback_cache and _callback_cache[c.data]['action'] in [
-            'channel_info', 'add_digest', 'edit_digests', 'initialize_schedule', 'check_schedule', 'edit_digest', 'delete_digest', 'digest_cat', 'digest_info', 'edit_digest_time', 'edit_digest_category', 'edit_digest_category_select', 'test_digest', 'schedule_digests_now'
-        ]
-    )
-    
-    # Добавляем хендлеры для сообщений (ввод времени и категорий)
-    from bot.states.states import TelegramChannelStates
-    dp.message.register(process_digest_time, TelegramChannelStates.waiting_for_digest_time)
-    dp.message.register(process_digest_edit_time, TelegramChannelStates.waiting_for_digest_edit_time)
-    dp.message.register(process_digest_edit_category, TelegramChannelStates.waiting_for_digest_edit_category)
-    
-    # Добавляем обработчик для ввода времени без состояния (создание и редактирование)
-    # dp.message.register(process_digest_time_no_state, lambda m: m.text and m.text.strip() and ':' in m.text and len(m.text.strip()) == 5)
-    
-    # Добавляем обработчик для редактирования категории без состояния
-    # dp.message.register(process_digest_edit_category_no_state, lambda m: m.text and m.text.strip() and len(m.text.strip()) > 0)
+    # Регистрируем обработчики из telegram_channels_handlers
+    from bot.handlers.telegram_channels_handlers import register_handlers as register_telegram_handlers
+    register_telegram_handlers(dp)
     
     dp.callback_query.register(auth_service_menu_callback, lambda c: c.data == "auth_service_menu")
     dp.callback_query.register(auth_service_status_callback, lambda c: c.data == "auth_service_status")
@@ -833,7 +791,3 @@ def register_handlers(dp: Dispatcher):
     dp.message.register(cmd_users, Command("users"))
     dp.message.register(cmd_permissions, Command("permissions"))
     dp.message.register(cmd_refresh_cache, Command("refresh_cache")) 
-
-    # Регистрируем обработчики из telegram_channels_handlers
-    from bot.handlers.telegram_channels_handlers import register_handlers as register_telegram_handlers
-    register_telegram_handlers(dp) 
