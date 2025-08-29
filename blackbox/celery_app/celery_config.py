@@ -33,10 +33,10 @@ beat_schedule = {
         'task': 'celery_app.tasks.news_tasks.send_daily_news',
         'schedule': crontab(hour=14, minute=0),  # Каждый день в 14:00
     },
-    'periodic-telegram-auth-check': {
-        'task': 'celery_app.tasks.auth_TG.periodic_telegram_auth_check',
-        'schedule': crontab(minute=0, hour='*/6'),  # Каждый 6 часов
-    },
+    # 'periodic-telegram-auth-check': {
+    #     'task': 'celery_app.tasks.auth_TG.periodic_telegram_auth_check',
+    #     'schedule': crontab(minute=0, hour='*/6'),  # Каждый 6 часов
+    # },
     # Парсинг всех источников каждые 6 часов
     'parse-all-sources-every-6-hours': {
         'task': 'celery_app.tasks.parsing_tasks.periodic_parse_all_sources',
