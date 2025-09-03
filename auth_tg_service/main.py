@@ -251,11 +251,13 @@ def check_all_status():
 def parse_all_sources(data: ParseSourcesRequest):
     """Запускает парсинг всех источников (RSS + Telegram)"""
     try:
-        task = parse_sources_task.delay(data.limit, data.chat_id)
+        # Если limit не указан, используем None для парсинга всех источников
+        limit = data.limit if data.limit is not None else None
+        task = parse_sources_task.delay(limit, data.chat_id)
         return ParsingResult(
             task_id=task.id,
             status="parsing_started",
-            message=f"Парсинг всех источников запущен (лимит: {data.limit})"
+            message=f"Парсинг всех источников запущен (лимит: {limit if limit else 'все'})"
         )
     except Exception as e:
         print(f"DEBUG: Error submitting task: {e}")
@@ -266,21 +268,23 @@ def parse_all_sources(data: ParseSourcesRequest):
 @app.post("/parsing/parse_rss_sources", response_model=ParsingResult)
 def parse_rss_sources(data: ParseRSSRequest):
     """Запускает парсинг только RSS источников"""
-    task = parse_rss_sources_task.delay(data.limit, data.chat_id)
+    limit = data.limit if data.limit is not None else None
+    task = parse_rss_sources_task.delay(limit, data.chat_id)
     return ParsingResult(
         task_id=task.id,
         status="rss_parsing_started",
-        message=f"Парсинг RSS источников запущен (лимит: {data.limit})"
+        message=f"Парсинг RSS источников запущен (лимит: {limit if limit else 'все'})"
     )
 
 @app.post("/parsing/parse_telegram_sources", response_model=ParsingResult)
 def parse_telegram_sources(data: ParseTelegramRequest):
     """Запускает парсинг только Telegram источников"""
-    task = parse_telegram_sources_task.delay(data.limit, data.chat_id)
+    limit = data.limit if data.limit is not None else None
+    task = parse_telegram_sources_task.delay(limit, data.chat_id)
     return ParsingResult(
         task_id=task.id,
         status="telegram_parsing_started",
-        message=f"Парсинг Telegram источников запущен (лимит: {data.limit})"
+        message=f"Парсинг Telegram источников запущен (лимит: {limit if limit else 'все'})"
     )
 
 @app.post("/parsing/parse_specific_source", response_model=ParsingResult)

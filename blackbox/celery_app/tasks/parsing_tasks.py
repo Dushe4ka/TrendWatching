@@ -19,8 +19,8 @@ def periodic_parse_all_sources():
         # Вызываем API сервиса авторизации для парсинга
         response = requests.post(
             f"{AUTH_SERVICE_URL}/parsing/parse_all_sources",
-            json={"limit": 100, "chat_id": None},
-            timeout=300  # 5 минут на выполнение
+            json={"chat_id": None},
+            timeout=10000 # 5 минут на выполнение
         )
         
         if response.status_code == 200:
@@ -32,7 +32,7 @@ def periodic_parse_all_sources():
                 vectorization_response = requests.post(
                     f"{AUTH_SERVICE_URL}/vectorization/start",
                     json={},
-                    timeout=60
+                    timeout=10000
                 )
                 if vectorization_response.status_code == 200:
                     logger.info("✅ Векторизация запущена после парсинга")
@@ -59,7 +59,7 @@ def periodic_parse_rss_sources():
         response = requests.post(
             f"{AUTH_SERVICE_URL}/parsing/parse_rss_sources",
             json={"limit": 50, "chat_id": None},
-            timeout=180
+            timeout=10000
         )
         
         if response.status_code == 200:
@@ -83,7 +83,7 @@ def periodic_parse_telegram_sources():
         response = requests.post(
             f"{AUTH_SERVICE_URL}/parsing/parse_telegram_sources",
             json={"limit": 50, "chat_id": None},
-            timeout=300
+            timeout=10000
         )
         
         if response.status_code == 200:
@@ -95,7 +95,7 @@ def periodic_parse_telegram_sources():
                 vectorization_response = requests.post(
                     f"{AUTH_SERVICE_URL}/vectorization/start",
                     json={},
-                    timeout=60
+                    timeout=10000
                 )
                 if vectorization_response.status_code == 200:
                     logger.info("✅ Векторизация запущена после Telegram парсинга")

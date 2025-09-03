@@ -1,13 +1,9 @@
 from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
-# from bot.utils.misc import category_to_callback  # Временно убираем для избежания циклических импортов
+from bot.utils.misc import category_to_callback  # Импортируем правильную функцию
 from typing import List, Dict, Set, Any
 import aiogram.types as types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.utils.callback_utils import create_digest_callback
-
-def category_to_callback(category: str) -> str:
-    """Временная функция для избежания циклических импортов"""
-    return category.lower().replace(' ', '_').replace('-', '_')
 
 def get_dynamic_main_menu_keyboard(permissions: dict) -> InlineKeyboardMarkup:
     """Создает динамическую клавиатуру главного меню на основе прав пользователя"""
@@ -108,11 +104,15 @@ def get_sources_manage_keyboard(categories: Set[str]) -> InlineKeyboardMarkup:
     Создает клавиатуру со списком категорий источников.
     Принимает на вход set() с названиями категорий.
     """
+    # Добавляем логирование для отладки
+    print(f"🔍 [DEBUG] get_sources_manage_keyboard: categories={categories}")
+    
     # Логика сборки кнопок, которая раньше была в хендлере
-    category_buttons = [
-        [InlineKeyboardButton(text=cat_name, callback_data=f"sources_manage_category_{category_to_callback(cat_name)}")]
-        for cat_name in sorted(list(categories)) # Преобразуем set в отсортированный list для цикла
-    ]
+    category_buttons = []
+    for cat_name in sorted(list(categories)):  # Преобразуем set в отсортированный list для цикла
+        cat_hash = category_to_callback(cat_name)
+        print(f"🔍 [DEBUG] Создаем кнопку: {cat_name} -> {cat_hash}")
+        category_buttons.append([InlineKeyboardButton(text=cat_name, callback_data=f"sources_manage_category_{cat_hash}")])
     
     # Добавляем статические кнопки
     category_buttons.append([InlineKeyboardButton(text="Все", callback_data="sources_manage_category_all")])
@@ -166,14 +166,15 @@ def create_sources_pagination_keyboard(sources: List[Dict], category_filter: str
         # Обрезаем URL для отображения
         display_url = source_url[:30] + "..." if len(source_url) > 30 else source_url
         
+        # category_filter уже является хешем, не хешируем повторно
         keyboard_rows.append([
             InlineKeyboardButton(
                 text=f"{source_type}: {display_url}", 
-                callback_data=f"noop_{category_to_callback(category_filter)}_{source_idx}_{page}"
+                callback_data=f"noop_{category_filter}_{source_idx}_{page}"
             ),
             InlineKeyboardButton(
                 text="❌", 
-                callback_data=f"delete_source_{category_to_callback(category_filter)}_{source_idx}_{page}"
+                callback_data=f"delete_source_{category_filter}_{source_idx}_{page}"
             )
         ])
     
@@ -182,7 +183,7 @@ def create_sources_pagination_keyboard(sources: List[Dict], category_filter: str
     
     # Кнопка "Предыдущая страница"
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"sources_page_{category_to_callback(category_filter)}_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"sources_page_{category_filter}_{page-1}"))
     
     # Информация о странице
     nav_buttons.append(InlineKeyboardButton(
@@ -192,7 +193,7 @@ def create_sources_pagination_keyboard(sources: List[Dict], category_filter: str
     
     # Кнопка "Следующая страница"
     if page < total_pages - 1:
-        nav_buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"sources_page_{category_to_callback(category_filter)}_{page+1}"))
+        nav_buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"sources_page_{category_filter}_{page+1}"))
     
     if nav_buttons:
         keyboard_rows.append(nav_buttons)

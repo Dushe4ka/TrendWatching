@@ -20,15 +20,27 @@ def category_to_callback(category: str) -> str:
     """Хэширует название категории для безопасной передачи в callback_data."""
     if category == "all":
         return "all"
-    return hashlib.md5(category.encode('utf-8')).hexdigest()[:16]
+    
+    hash_result = hashlib.md5(category.encode('utf-8')).hexdigest()[:16]
+    print(f"🔍 [DEBUG] category_to_callback: {category} -> {hash_result}")
+    return hash_result
 
 def callback_to_category(callback: str, all_categories: list) -> str:
     """Восстанавливает название категории из хэша в callback_data."""
     if callback == "all":
         return "all"
+    
+    # Добавляем логирование для отладки
+    print(f"🔍 [DEBUG] callback_to_category: callback={callback}, all_categories={all_categories}")
+    
     for cat in all_categories:
-        if category_to_callback(cat) == callback:
+        cat_hash = category_to_callback(cat)
+        print(f"🔍 [DEBUG] Сравниваем: {cat} -> {cat_hash} == {callback}")
+        if cat_hash == callback:
+            print(f"✅ [DEBUG] Найдено совпадение: {cat}")
             return cat
+    
+    print(f"❌ [DEBUG] Категория не найдена для callback: {callback}")
     return None
 
 def is_admin_from_env(user_id: int) -> bool:

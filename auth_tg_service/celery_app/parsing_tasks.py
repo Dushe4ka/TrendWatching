@@ -204,7 +204,7 @@ def parse_telegram_with_session_task(session_phone: str, sources: list, chat_id:
 
 @celery_app.task
 @monitor_performance
-def parse_sources_task(limit: int = 100, chat_id: str = None):
+def parse_sources_task(limit: int = None, chat_id: str = None):
     """Парсит все источники (RSS + Telegram) с распределением по сессиям"""
     import time
     start_time = time.time()

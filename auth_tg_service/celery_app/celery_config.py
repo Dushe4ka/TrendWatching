@@ -23,14 +23,30 @@ worker_max_tasks_per_child = 1000  # Перезапуск воркеров ка�
 worker_max_memory_per_child = 200000  # 200MB лимит памяти на воркер (KB)
 
 # Настройки задач для продакшена
-task_time_limit = 300  # 5 минут максимум на задачу
-task_soft_time_limit = 240  # 4 минуты мягкий лимит
+task_time_limit = 1800  # 30 минут максимум на задачу
+task_soft_time_limit = 1500  # 25 минут мягкий лимит
 task_acks_late = True  # Подтверждать задачу только после выполнения
 task_reject_on_worker_lost = True  # Отклонять задачу если воркер упал
 
 # Retry политика
 task_default_retry_delay = 60  # 1 минута между попытками
 task_max_retries = 3  # Максимум 3 попытки
+
+# Настройки для HTTP-запросов
+task_annotations = {
+    'celery_app.parsing_tasks.parse_sources_task': {
+        'time_limit': 1800,
+        'soft_time_limit': 1500,
+    },
+    'celery_app.parsing_tasks.parse_rss_sources_task': {
+        'time_limit': 1200,
+        'soft_time_limit': 1000,
+    },
+    'celery_app.parsing_tasks.parse_telegram_sources_task': {
+        'time_limit': 1200,
+        'soft_time_limit': 1000,
+    }
+}
 
 # Настройки логирования
 worker_log_format = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
@@ -90,4 +106,5 @@ celery_app.conf.update(
     task_reject_on_worker_lost=task_reject_on_worker_lost,
     task_default_retry_delay=task_default_retry_delay,
     task_max_retries=task_max_retries,
+    task_annotations=task_annotations,
 ) 

@@ -364,8 +364,23 @@ async def sources_manage_category_callback(callback_query: types.CallbackQuery):
     """Обработчик выбора категории для управления"""
     category_hash = callback_query.data.replace("sources_manage_category_", "")
     sources = get_sources()
-    categories_set = get_categories_set(sources)
-    category_filter = get_category_filter(category_hash, categories_set)
+    # Используем get_categories() вместо get_categories_set(sources) для консистентности
+    categories = get_categories()
+    
+    # Добавляем логирование для отладки
+    print(f"🔍 [DEBUG] category_hash: {category_hash}")
+    print(f"🔍 [DEBUG] categories: {categories}")
+    
+    category_filter = get_category_filter(category_hash, categories)
+    
+    # Проверяем, что категория найдена
+    if category_filter is None:
+        print(f"❌ [DEBUG] Категория не найдена для hash: {category_hash}")
+        await callback_query.answer("❌ Категория не найдена", show_alert=True)
+        return
+    
+    print(f"✅ [DEBUG] Найдена категория: {category_filter}")
+    
     filtered_sources = filter_sources_by_category(sources, category_filter)
     keyboard = create_sources_pagination_keyboard(filtered_sources, category_filter, page=0)
     total_sources = len(filtered_sources)
@@ -387,8 +402,15 @@ async def delete_source_callback(callback_query: types.CallbackQuery):
         return
     
     sources = get_sources()
-    categories_set = get_categories_set(sources)
-    category_filter = get_category_filter(category_hash, categories_set)
+    # Используем get_categories() для консистентности
+    categories = get_categories()
+    category_filter = get_category_filter(category_hash, categories)
+    
+    # Проверяем, что категория найдена
+    if category_filter is None:
+        await callback_query.answer("❌ Категория не найдена", show_alert=True)
+        return
+    
     filtered_sources = filter_sources_by_category(sources, category_filter)
     
     if source_idx >= len(filtered_sources):
@@ -405,8 +427,9 @@ async def delete_source_callback(callback_query: types.CallbackQuery):
     # Обновляем список, оставаясь на той же странице
     try:
         sources = get_sources()
-        categories_set = get_categories_set(sources)
-        category_filter = get_category_filter(category_hash, categories_set)
+        # Используем get_categories() для консистентности
+        categories = get_categories()
+        category_filter = get_category_filter(category_hash, categories)
         filtered_sources = filter_sources_by_category(sources, category_filter)
         total_sources = len(filtered_sources)
         sources_per_page = 10
@@ -426,8 +449,15 @@ async def sources_page_callback(callback_query: types.CallbackQuery):
         category_hash = parts[0]
         page = int(parts[1])
         sources = get_sources()
-        categories_set = get_categories_set(sources)
-        category_filter = get_category_filter(category_hash, categories_set)
+        # Используем get_categories() для консистентности
+        categories = get_categories()
+        category_filter = get_category_filter(category_hash, categories)
+        
+        # Проверяем, что категория найдена
+        if category_filter is None:
+            await callback_query.answer("❌ Категория не найдена", show_alert=True)
+            return
+        
         filtered_sources = filter_sources_by_category(sources, category_filter)
         keyboard = create_sources_pagination_keyboard(filtered_sources, category_filter, page=page)
         total_sources = len(filtered_sources)
@@ -467,7 +497,7 @@ async def parse_sources_confirm_callback(callback_query: types.CallbackQuery, st
         response = requests.post(
             f"{auth_service_url}/parsing/parse_all_sources",
             json={
-                "limit": 100,
+                "limit": None,
                 "chat_id": str(callback_query.message.chat.id)
             },
             timeout=30

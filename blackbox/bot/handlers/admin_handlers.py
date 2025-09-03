@@ -340,7 +340,7 @@ async def auth_service_parse_all_callback(callback_query: types.CallbackQuery):
     await callback_query.answer("⏳ Запускаем парсинг всех источников...")
     
     try:
-        result = auth_service_client.parse_all_sources(limit=100)
+        result = auth_service_client.parse_all_sources(limit=None)
         if result:
             task_id = result.get("task_id", "N/A")
             text = (

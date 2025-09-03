@@ -26,16 +26,20 @@ async def get_new_channels(limit=1000):
     
     return await cursor.to_list(length=limit)
 
-async def get_all_channels(limit=1000):
+async def get_all_channels(limit=None):
     """
     Получить все каналы из blackbox sources коллекции
+    limit: None - без ограничений, число - с ограничением
     """
     sources_collection = blackbox_db["sources"]
     
-    # Получаем все каналы без фильтрации
-    cursor = sources_collection.find({}).limit(limit)
+    cursor = sources_collection.find({})
     
-    return await cursor.to_list(length=limit)
+    if limit is not None:
+        cursor = cursor.limit(limit)
+        return await cursor.to_list(length=limit)
+    else:
+        return await cursor.to_list()
 
 async def mark_channel_assigned(source_id, session_id):
     """

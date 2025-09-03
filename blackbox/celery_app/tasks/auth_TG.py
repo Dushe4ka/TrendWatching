@@ -128,78 +128,78 @@ def send_admin_notification(text: str, keyboard=None, specific_chat_id=None):
 #         asyncio.run(initiate_auth_if_needed(chat_id))
 #     except Exception as e:
 #         log.error(f"Критическая ошибка в задаче periodic_telegram_auth_check: {e}", exc_info=True)
-#
-#
-# async def initiate_auth_if_needed(chat_id=None):
-#     """Проверяет авторизацию и, если она нужна, сохраняет состояние для бота."""
-#     if not all([API_ID, API_HASH, PHONE_NUMBER]):
-#         log.error("Отсутствуют API_ID, API_HASH или PHONE_NUMBER. Проверка прервана.")
-#         return
-#
-#     client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
-#
-#     # Ключ состояния для текущего пользователя
-#     auth_key = f"{AUTH_STATE_KEY_PREFIX}{PHONE_NUMBER}"
-#
-#     if redis_client.exists(auth_key):
-#         log.info("Процесс авторизации уже запущен. Пропускаем эту проверку.")
-#         return
-#
-#     try:
-#         await client.connect()
-#         if await client.is_user_authorized():
-#             log.info("✅ Авторизация в Telegram активна.")
-#
-#             # Отправляем сообщение пользователю о том, что авторизация активна
-#             message = (
-#                 "✅ **Авторизация Telegram активна!**\n\n"
-#                 "🔐 Ваша сессия работает корректно.\n"
-#                 "📱 Парсер Telegram-каналов готов к работе.\n\n"
-#                 "💡 Дополнительная авторизация не требуется."
-#             )
-#
-#             # Создаем клавиатуру с кнопкой "Назад"
-#             keyboard = {
-#                 "inline_keyboard": [
-#                     [{"text": "← Назад", "callback_data": "tg_auth_request_menu"}]
-#                 ]
-#             }
-#
-#             send_admin_notification(message, keyboard, chat_id)
-#             return
-#
-#         log.info("❗️ Требуется авторизация в Telegram. Инициирую процесс...")
-#         sent_code = await client.send_code_request(PHONE_NUMBER)
-#
-#         # Сохраняем состояние в Redis на 10 минут
-#         state = {
-#             "status": "awaiting_code",
-#             "phone_code_hash": sent_code.phone_code_hash
-#         }
-#         redis_client.set(auth_key, json.dumps(state), ex=600)
-#
-#         message = (
-#             "🤖 **Требуется ваше участие!**\n\n"
-#             "Для работы парсера телеграм-каналов нужна авторизация. Я отправил код в ваш аккаунт Telegram.\n\n"
-#             "Пожалуйста, **отправьте мне этот код прямо сюда**.\n\n"
-#             "⚠️ **Важно**: После ввода кода сессия будет автоматически сохранена."
-#         )
-#
-#         # Создаем клавиатуру для управления
-#         keyboard = {
-#             "inline_keyboard": [
-#                 [{"text": "Проверить статус", "callback_data": "tg_auth_status_check"}],
-#                 [{"text": "← В главное меню", "callback_data": "main_menu"}]
-#             ]
-#         }
-#
-#         send_admin_notification(message, keyboard, chat_id)
-#
-#     except Exception as e:
-#         log.error(f"❌ Неизвестная ошибка при инициации авторизации: {e}", exc_info=True)
-#     finally:
-#         if client.is_connected():
-#             await client.disconnect()
+
+
+async def initiate_auth_if_needed(chat_id=None):
+    """Проверяет авторизацию и, если она нужна, сохраняет состояние для бота."""
+    if not all([API_ID, API_HASH, PHONE_NUMBER]):
+        log.error("Отсутствуют API_ID, API_HASH или PHONE_NUMBER. Проверка прервана.")
+        return
+
+    client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+    
+    # Ключ состояния для текущего пользователя
+    auth_key = f"{AUTH_STATE_KEY_PREFIX}{PHONE_NUMBER}"
+
+    if redis_client.exists(auth_key):
+        log.info("Процесс авторизации уже запущен. Пропускаем эту проверку.")
+        return
+
+    try:
+        await client.connect()
+        if await client.is_user_authorized():
+            log.info("✅ Авторизация в Telegram активна.")
+            
+            # Отправляем сообщение пользователю о том, что авторизация активна
+            message = (
+                "✅ **Авторизация Telegram активна!**\n\n"
+                "🔐 Ваша сессия работает корректно.\n"
+                "📱 Парсер Telegram-каналов готов к работе.\n\n"
+                "💡 Дополнительная авторизация не требуется."
+            )
+            
+            # Создаем клавиатуру с кнопкой "Назад"
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "← Назад", "callback_data": "tg_auth_request_menu"}]
+                ]
+            }
+            
+            send_admin_notification(message, keyboard, chat_id)
+            return
+
+        log.info("❗️ Требуется авторизация в Telegram. Инициирую процесс...")
+        sent_code = await client.send_code_request(PHONE_NUMBER)
+        
+        # Сохраняем состояние в Redis на 10 минут
+        state = {
+            "status": "awaiting_code",
+            "phone_code_hash": sent_code.phone_code_hash
+        }
+        redis_client.set(auth_key, json.dumps(state), ex=600)
+
+        message = (
+            "🤖 **Требуется ваше участие!**\n\n"
+            "Для работы парсера телеграм-каналов нужна авторизация. Я отправил код в ваш аккаунт Telegram.\n\n"
+            "Пожалуйста, **отправьте мне этот код прямо сюда**.\n\n"
+            "⚠️ **Важно**: После ввода кода сессия будет автоматически сохранена."
+        )
+        
+        # Создаем клавиатуру для управления
+        keyboard = {
+            "inline_keyboard": [
+                [{"text": "Проверить статус", "callback_data": "tg_auth_status_check"}],
+                [{"text": "← В главное меню", "callback_data": "main_menu"}]
+            ]
+        }
+        
+        send_admin_notification(message, keyboard, chat_id)
+
+    except Exception as e:
+        log.error(f"❌ Неизвестная ошибка при инициации авторизации: {e}", exc_info=True)
+    finally:
+        if client.is_connected():
+            await client.disconnect()
 
 
 @shared_task(name="celery_app.tasks.auth_TG.process_auth_code")

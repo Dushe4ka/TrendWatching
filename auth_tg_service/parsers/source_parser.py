@@ -25,7 +25,7 @@ class SourceParser:
         self.blackbox_db = blackbox_db
         self.sources_collection = blackbox_db["sources"]
     
-    async def get_available_sources(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_available_sources(self, limit: int = None) -> List[Dict[str, Any]]:
         """
         Получает доступные источники из blackbox
         

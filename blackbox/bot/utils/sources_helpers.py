@@ -15,6 +15,10 @@ def filter_sources_by_category(sources: List[dict], category: str) -> List[dict]
     return [src for src in sources if src.get('category') == category]
 
 def format_sources_text(category: str, total: int, page: int = 0, total_pages: int | None = None) -> str:
+    # Проверяем, что категория не None
+    if category is None:
+        category = "Неизвестная категория"
+    
     if total == 0:
         return f"🗂 Активные источники (категория: {category}):\n\n❌ Источники не найдены"
     text = f"🗂 Активные источники (категория: {category}):\n\n📊 Всего источников: {total}"

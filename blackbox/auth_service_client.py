@@ -1,5 +1,5 @@
 import requests
-from typing import Dict, Any, Optional
+from typing import Optional, Dict, List
 from dotenv import load_dotenv
 import os
 from logger_config import setup_logger
@@ -107,17 +107,20 @@ class AuthServiceClient:
         return self._make_request("POST", "/auth/distribute_channels_from_db")
     
     # Методы для парсинга
-    def parse_all_sources(self, limit: int = 100) -> Optional[Dict]:
+    def parse_all_sources(self, limit: int = None) -> Optional[Dict]:
         """Запускает парсинг всех источников"""
-        return self._make_request("POST", "/parsing/parse_all_sources", {"limit": limit})
+        data = {"limit": limit} if limit is not None else {}
+        return self._make_request("POST", "/parsing/parse_all_sources", data)
     
-    def parse_rss_sources(self, limit: int = 50) -> Optional[Dict]:
+    def parse_rss_sources(self, limit: int = None) -> Optional[Dict]:
         """Запускает парсинг только RSS источников"""
-        return self._make_request("POST", "/parsing/parse_rss_sources", {"limit": limit})
+        data = {"limit": limit} if limit is not None else {}
+        return self._make_request("POST", "/parsing/parse_rss_sources", data)
     
-    def parse_telegram_sources(self, limit: int = 50) -> Optional[Dict]:
+    def parse_telegram_sources(self, limit: int = None) -> Optional[Dict]:
         """Запускает парсинг только Telegram источников"""
-        return self._make_request("POST", "/parsing/parse_telegram_sources", {"limit": limit})
+        data = {"limit": limit} if limit is not None else {}
+        return self._make_request("POST", "/parsing/parse_telegram_sources", data)
     
     def parse_specific_source(self, source_url: str, source_type: str = "auto") -> Optional[Dict]:
         """Запускает парсинг конкретного источника"""

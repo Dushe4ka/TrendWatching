@@ -7,8 +7,9 @@ from .utils import retry_on_failure, decode_if_bytes, save_parsed_data
 log = logging.getLogger(__name__)
 
 async def fetch_rss_content(url, headers):
-    """Получает содержимое RSS-ленты"""
-    async with aiohttp.ClientSession() as session:
+    """Получает содержимое RSS-ленты с таймаутами"""
+    timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=20)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url, headers=headers) as response:
             return await response.text()
 
@@ -32,8 +33,8 @@ async def parse_rss(url: str, category: str, parsed_data_collection, verbose=Fal
             'Accept': 'application/rss+xml, text/xml;q=0.9, */*;q=0.8'
         }
         
-        # Используем механизм повторных запросов
-        content = await retry_on_failure(fetch_rss_content, url, headers)
+        # Используем механизм повторных запросов с уменьшенными таймаутами
+        content = await retry_on_failure(fetch_rss_content, url, headers, max_retries=2, delay=2)
         feed = feedparser.parse(content)
         
         if verbose:
