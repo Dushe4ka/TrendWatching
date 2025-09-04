@@ -382,7 +382,8 @@ async def sources_manage_category_callback(callback_query: types.CallbackQuery):
     print(f"✅ [DEBUG] Найдена категория: {category_filter}")
     
     filtered_sources = filter_sources_by_category(sources, category_filter)
-    keyboard = create_sources_pagination_keyboard(filtered_sources, category_filter, page=0)
+    # Передаем category_hash (хеш) вместо category_filter (оригинальное название)
+    keyboard = create_sources_pagination_keyboard(filtered_sources, category_hash, page=0)
     total_sources = len(filtered_sources)
     text = format_sources_text(category_filter, total_sources)
     await callback_query.message.edit_text(text, reply_markup=keyboard)
@@ -436,7 +437,7 @@ async def delete_source_callback(callback_query: types.CallbackQuery):
         total_pages = (total_sources + sources_per_page - 1) // sources_per_page
         if page >= total_pages and total_pages > 0:
             page = total_pages - 1
-        keyboard = create_sources_pagination_keyboard(filtered_sources, category_filter, page=page)
+        keyboard = create_sources_pagination_keyboard(filtered_sources, category_hash, page=page)
         text = format_sources_text(category_filter, total_sources, page, total_pages)
         await callback_query.message.edit_text(text, reply_markup=keyboard)
     except Exception as e:
@@ -448,6 +449,9 @@ async def sources_page_callback(callback_query: types.CallbackQuery):
         parts = callback_query.data.replace("sources_page_", "").split("_", 1)
         category_hash = parts[0]
         page = int(parts[1])
+        
+        # Добавляем логирование для отладки
+        print(f"🔍 [DEBUG] sources_page_callback: category_hash={category_hash}, page={page}")
         sources = get_sources()
         # Используем get_categories() для консистентности
         categories = get_categories()
@@ -459,7 +463,7 @@ async def sources_page_callback(callback_query: types.CallbackQuery):
             return
         
         filtered_sources = filter_sources_by_category(sources, category_filter)
-        keyboard = create_sources_pagination_keyboard(filtered_sources, category_filter, page=page)
+        keyboard = create_sources_pagination_keyboard(filtered_sources, category_hash, page=page)
         total_sources = len(filtered_sources)
         sources_per_page = 10
         total_pages = (total_sources + sources_per_page - 1) // sources_per_page

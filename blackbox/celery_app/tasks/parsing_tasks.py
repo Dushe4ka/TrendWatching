@@ -19,7 +19,7 @@ def periodic_parse_all_sources():
         # Вызываем API сервиса авторизации для парсинга
         response = requests.post(
             f"{AUTH_SERVICE_URL}/parsing/parse_all_sources",
-            json={"chat_id": None},
+            json={"limit": None, "chat_id": None},
             timeout=10000 # 5 минут на выполнение
         )
         

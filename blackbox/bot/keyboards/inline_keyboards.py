@@ -141,6 +141,9 @@ def get_add_more_sources_keyboard(source_type: str):
 
 def create_sources_pagination_keyboard(sources: List[Dict], category_filter: str = "all", page: int = 0, sources_per_page: int = 10):
     """Создает клавиатуру с пагинацией для управления источниками"""
+    # Добавляем логирование для отладки
+    print(f"🔍 [DEBUG] create_sources_pagination_keyboard: category_filter={category_filter}, page={page}")
+    
     total_sources = len(sources)
     total_pages = (total_sources + sources_per_page - 1) // sources_per_page
     

@@ -8,6 +8,9 @@ logger = setup_logger("message_utils")
 # Константы для Telegram
 MAX_MESSAGE_LENGTH = 4096
 MAX_CAPTION_LENGTH = 1024
+# Резерв для дополнительных вставок (заголовки продолжения, номера частей и т.д.)
+# Учитываем максимальную длину суффикса "--- Часть 999 из 999 ---" = ~30 символов + запас
+SAFETY_MARGIN = 250
 
 def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
     """
@@ -20,7 +23,12 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
     Returns:
         Список частей сообщения
     """
-    if len(text) <= max_length:
+    # Используем безопасный запас для учета дополнительных вставок
+    safe_max_length = max_length - SAFETY_MARGIN
+    
+    logger.debug(f"Разбиение сообщения: длина текста={len(text)}, max_length={max_length}, safe_max_length={safe_max_length}")
+    
+    if len(text) <= safe_max_length:
         return [text]
     
     parts = []
@@ -35,9 +43,9 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
         
         # Если нет слов (например, только символы без пробелов), разбиваем по символам
         if len(words) <= 1:
-            # Разбиваем текст на части по max_length символов
-            for i in range(0, len(text), max_length):
-                part = text[i:i + max_length]
+            # Разбиваем текст на части по safe_max_length символов
+            for i in range(0, len(text), safe_max_length):
+                part = text[i:i + safe_max_length]
                 if part:
                     parts.append(part)
             return parts
@@ -46,7 +54,7 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
         current_part = ""
         
         for word in words:
-            if len(current_part + " " + word) <= max_length:
+            if len(current_part + " " + word) <= safe_max_length:
                 current_part += (" " + word) if current_part else word
             else:
                 if current_part:
@@ -61,7 +69,7 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
     # Обрабатываем предложения
     for sentence in sentences:
         # Если предложение само по себе длиннее лимита
-        if len(sentence) > max_length:
+        if len(sentence) > safe_max_length:
             # Если у нас есть накопленный текст, сохраняем его
             if current_part:
                 parts.append(current_part.strip())
@@ -72,7 +80,7 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
             temp_part = ""
             
             for word in words:
-                if len(temp_part + " " + word) <= max_length:
+                if len(temp_part + " " + word) <= safe_max_length:
                     temp_part += (" " + word) if temp_part else word
                 else:
                     if temp_part:
@@ -83,7 +91,7 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
                 current_part = temp_part
         else:
             # Проверяем, поместится ли предложение в текущую часть
-            if len(current_part + " " + sentence) <= max_length:
+            if len(current_part + " " + sentence) <= safe_max_length:
                 current_part += (" " + sentence) if current_part else sentence
             else:
                 # Сохраняем текущую часть и начинаем новую
@@ -94,6 +102,8 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> List[str]:
     # Добавляем последнюю часть
     if current_part:
         parts.append(current_part.strip())
+    
+    logger.debug(f"Сообщение разбито на {len(parts)} частей. Длины частей: {[len(part) for part in parts]}")
     
     return parts
 
@@ -134,7 +144,8 @@ def split_analysis_message(
     
     # Если весь текст помещается в одно сообщение
     full_message = header + f"📝 Результаты анализа:\n{analysis_text}"
-    if len(full_message) <= MAX_MESSAGE_LENGTH:
+    logger.debug(f"Анализ: длина полного сообщения={len(full_message)}, лимит={MAX_MESSAGE_LENGTH - SAFETY_MARGIN}")
+    if len(full_message) <= MAX_MESSAGE_LENGTH - SAFETY_MARGIN:
         return [full_message]
     
     # Разбиваем на части
@@ -142,7 +153,7 @@ def split_analysis_message(
     
     # Первая часть с заголовком
     first_part = header + "📝 Результаты анализа:\n"
-    remaining_length = MAX_MESSAGE_LENGTH - len(first_part)
+    remaining_length = MAX_MESSAGE_LENGTH - len(first_part) - SAFETY_MARGIN
     
     # Находим подходящее место для разрыва в анализе
     analysis_parts = split_message(analysis_text, remaining_length)
@@ -152,9 +163,19 @@ def split_analysis_message(
         parts.append(first_part)
         
         # Добавляем остальные части анализа
-        for part in analysis_parts[1:]:
-            parts.append(f"📝 Продолжение анализа:\n{part}")
+        for i, part in enumerate(analysis_parts[1:], 2):
+            continuation_header = f"📝 Продолжение анализа (часть {i}):\n"
+            # Учитываем длину заголовка продолжения при разбиении
+            continuation_remaining = MAX_MESSAGE_LENGTH - len(continuation_header) - SAFETY_MARGIN
+            continuation_parts = split_message(part, continuation_remaining)
+            
+            for j, continuation_part in enumerate(continuation_parts):
+                if j == 0:
+                    parts.append(continuation_header + continuation_part)
+                else:
+                    parts.append(f"📝 Продолжение анализа (часть {i}.{j+1}):\n{continuation_part}")
     
+    logger.debug(f"Анализ разбит на {len(parts)} частей. Длины частей: {[len(part) for part in parts]}")
     return parts
 
 def split_digest_message(digest_text: str, date: str, total_materials: int) -> List[str]:
@@ -175,7 +196,8 @@ def split_digest_message(digest_text: str, date: str, total_materials: int) -> L
     
     # Если весь текст помещается в одно сообщение
     full_message = header + digest_text
-    if len(full_message) <= MAX_MESSAGE_LENGTH:
+    logger.debug(f"Дайджест: длина полного сообщения={len(full_message)}, лимит={MAX_MESSAGE_LENGTH - SAFETY_MARGIN}")
+    if len(full_message) <= MAX_MESSAGE_LENGTH - SAFETY_MARGIN:
         return [full_message]
     
     # Разбиваем на части
@@ -183,7 +205,7 @@ def split_digest_message(digest_text: str, date: str, total_materials: int) -> L
     
     # Первая часть с заголовком
     first_part = header
-    remaining_length = MAX_MESSAGE_LENGTH - len(first_part)
+    remaining_length = MAX_MESSAGE_LENGTH - len(first_part) - SAFETY_MARGIN
     
     # Находим подходящее место для разрыва в дайджесте
     digest_parts = split_message(digest_text, remaining_length)
@@ -194,8 +216,18 @@ def split_digest_message(digest_text: str, date: str, total_materials: int) -> L
         
         # Добавляем остальные части дайджеста
         for i, part in enumerate(digest_parts[1:], 2):
-            parts.append(f"📰 Продолжение дайджеста (часть {i}):\n{part}")
+            continuation_header = f"📰 Продолжение дайджеста (часть {i}):\n"
+            # Учитываем длину заголовка продолжения при разбиении
+            continuation_remaining = MAX_MESSAGE_LENGTH - len(continuation_header) - SAFETY_MARGIN
+            continuation_parts = split_message(part, continuation_remaining)
+            
+            for j, continuation_part in enumerate(continuation_parts):
+                if j == 0:
+                    parts.append(continuation_header + continuation_part)
+                else:
+                    parts.append(f"📰 Продолжение дайджеста (часть {i}.{j+1}):\n{continuation_part}")
     
+    logger.debug(f"Дайджест разбит на {len(parts)} частей. Длины частей: {[len(part) for part in parts]}")
     return parts
 
 def format_message_part(part: str, part_number: int = None, total_parts: int = None) -> str:
@@ -211,5 +243,11 @@ def format_message_part(part: str, part_number: int = None, total_parts: int = N
         Отформатированная часть сообщения
     """
     if part_number and total_parts and total_parts > 1:
-        return f"{part}\n\n--- Часть {part_number} из {total_parts} ---"
+        suffix = f"\n\n--- Часть {part_number} из {total_parts} ---"
+        # Проверяем, не превышает ли итоговое сообщение лимит
+        if len(part) + len(suffix) > MAX_MESSAGE_LENGTH:
+            logger.warning(f"Часть {part_number} из {total_parts} превышает лимит: {len(part) + len(suffix)} > {MAX_MESSAGE_LENGTH}")
+            # Если превышает, убираем суффикс
+            return part
+        return f"{part}{suffix}"
     return part 

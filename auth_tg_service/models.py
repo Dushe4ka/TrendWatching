@@ -56,15 +56,15 @@ class ConfirmPasswordModel(BaseModel):
     admin_chat_id: Optional[str] = None 
 
 class ParseSourcesRequest(BaseModel):
-    limit: Optional[int] = 100
+    limit: Optional[int] = None
     chat_id: Optional[str] = None
 
 class ParseRSSRequest(BaseModel):
-    limit: Optional[int] = 50
+    limit: Optional[int] = None
     chat_id: Optional[str] = None
 
 class ParseTelegramRequest(BaseModel):
-    limit: Optional[int] = 50
+    limit: Optional[int] = None
     chat_id: Optional[str] = None
 
 class ParseSpecificSourceRequest(BaseModel):
