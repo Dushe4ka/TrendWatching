@@ -205,13 +205,6 @@ def analyze_trend(
                 logger.error(f"Ошибка при получении материалов за последние 24 часа: {str(e)}")
                 raise
 
-    except Exception as e:
-        logger.error(f"Ошибка при получении материалов: {str(e)}")
-        return {
-            'status': 'error',
-            'message': str(e)
-        }
-
         # 2. Проверяем общее количество токенов и максимальный размер контекста
         total_tokens = sum(count_tokens(material['text']) for material in recent_materials)
         max_context_size = llm_client.get_max_context_size()
@@ -219,6 +212,7 @@ def analyze_trend(
         logger.info(f"Максимальный размер контекста модели: {max_context_size}")
         
         # 3. Разбиваем на чанки и анализируем
+        chunks = []  # Инициализируем переменную chunks
         if total_tokens <= max_context_size * 0.8:
             # Если общее количество токенов не превышает контекстное окно
             logger.info("Количество токенов в пределах контекстного окна, анализируем все материалы")
