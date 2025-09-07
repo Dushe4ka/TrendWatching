@@ -15,9 +15,9 @@ enable_utc = True
 worker_pool = 'prefork'  # Используем prefork пул для Linux
 
 worker_concurrency = 15  # Количество воркеров
-worker_prefetch_multiplier = 1  # Каждый воркер берет по одной задаче
-worker_max_tasks_per_child = 100  # Перезапуск воркера после 100 задач
-worker_max_memory_per_child = 200000  # Перезапуск воркера при превышении памяти (в КБ)
+worker_prefetch_multiplier = 4  # Каждый воркер берет по 4 задаче
+worker_max_tasks_per_child = 500  # Перезапуск воркера после 500 задач
+worker_max_memory_per_child = 250000  # Перезапуск воркера при превышении памяти (в КБ)
 
 # Настройки логирования
 worker_log_format = '[%(asctime)s: %(levelname)s/%(processName)s] %(message)s'
@@ -62,7 +62,7 @@ imports = (
 
 # Дополнительные настройки для отладки
 task_track_started = True
-task_time_limit = 3600  # Максимальное время выполнения задачи (1 час)
-task_soft_time_limit = 3000  # Мягкое ограничение времени (50 минут)
+task_time_limit = 7200  # Максимальное время выполнения задачи (1 час)
+task_soft_time_limit = 6000  # Мягкое ограничение времени (50 минут)
 task_acks_late = True  # Подтверждение задачи только после выполнения
 task_reject_on_worker_lost = True  # Отклонение задачи при потере воркера 

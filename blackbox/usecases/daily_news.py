@@ -7,7 +7,7 @@ from vector_store import VectorStore
 from text_processor import TextProcessor
 from logger_config import setup_logger
 import tiktoken
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Настраиваем логгер
 logger = setup_logger("daily_news")
@@ -121,15 +121,16 @@ def test_embeddings():
 
 def analyze_trend(
     category: str,
-    analysis_date: str,
+    analysis_date: str = None,
     embedding_type: str = "openai",
     openai_model: str = "text-embedding-3-small"
 ) -> Dict[str, Any]:
     """
-    Анализ трендов и формирование сводки новостей за последние сутки
+    Анализ трендов и формирование сводки новостей
     
     Args:
         category: Категория для анализа
+        analysis_date: Дата для анализа в формате YYYY-MM-DD. Если None, берутся данные за последние 24 часа
         embedding_type: Тип эмбеддингов ("ollama" или "openai")
         openai_model: Название модели для OpenAI
         
@@ -148,31 +149,68 @@ def analyze_trend(
             openai_model=openai_model
         )
         
-        # 1. Получаем все материалы за указанную дату
-        logger.info(f"Получаем материалы за {analysis_date} для категории: {category}")
-        
-        try:
-            # Преобразуем строку даты в datetime
-            target_date = datetime.strptime(analysis_date, "%Y-%m-%d")
+        # 1. Получаем материалы в зависимости от указанной даты
+        if analysis_date:
+            # Если дата указана, получаем материалы за конкретную дату
+            logger.info(f"Получаем материалы за {analysis_date} для категории: {category}")
             
-            # Получаем материалы за указанную дату
-            recent_materials = vector_store.search_by_category_and_date(
-                category=category,
-                start_date=target_date
-            )
-            
-            if not recent_materials:
-                logger.warning(f"Не найдено материалов за {analysis_date}")
-                return {
-                    'status': 'error',
-                    'message': f'Не найдено материалов за {analysis_date}'
-                }
+            try:
+                # Преобразуем строку даты в datetime
+                target_date = datetime.strptime(analysis_date, "%Y-%m-%d")
                 
-            logger.info(f"Найдено {len(recent_materials)} материалов за {analysis_date}")
+                # Получаем материалы за указанную дату
+                recent_materials = vector_store.search_by_category_and_date(
+                    category=category,
+                    start_date=target_date
+                )
+                
+                if not recent_materials:
+                    logger.warning(f"Не найдено материалов за {analysis_date}")
+                    return {
+                        'status': 'error',
+                        'message': f'Не найдено материалов за {analysis_date}'
+                    }
+                    
+                logger.info(f"Найдено {len(recent_materials)} материалов за {analysis_date}")
+                
+            except Exception as e:
+                logger.error(f"Ошибка при получении материалов за {analysis_date}: {str(e)}")
+                raise
+        else:
+            # Если дата не указана, получаем материалы за последние 24 часа
+            logger.info(f"Получаем материалы за последние 24 часа для категории: {category}")
             
-        except Exception as e:
-            logger.error(f"Ошибка при получении материалов: {str(e)}")
-            raise
+            try:
+                # Вычисляем диапазон дат: от 24 часов назад до текущего момента
+                end_date = datetime.now()
+                start_date = end_date - timedelta(hours=24)
+                
+                # Получаем материалы за последние 24 часа
+                recent_materials = vector_store.search_by_category_and_date_range(
+                    category=category,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                
+                if not recent_materials:
+                    logger.warning(f"Не найдено материалов за последние 24 часа")
+                    return {
+                        'status': 'error',
+                        'message': f'Не найдено материалов за последние 24 часа'
+                    }
+                    
+                logger.info(f"Найдено {len(recent_materials)} материалов за последние 24 часа")
+                
+            except Exception as e:
+                logger.error(f"Ошибка при получении материалов за последние 24 часа: {str(e)}")
+                raise
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении материалов: {str(e)}")
+        return {
+            'status': 'error',
+            'message': str(e)
+        }
 
         # 2. Проверяем общее количество токенов и максимальный размер контекста
         total_tokens = sum(count_tokens(material['text']) for material in recent_materials)
@@ -253,15 +291,18 @@ def analyze_trend(
                 chunk_analyses.append(chunk_analysis.get('analysis', ''))
         
         # 4. Генерируем финальную сводку новостей
+        display_date = analysis_date if analysis_date else datetime.now().strftime("%Y-%m-%d")
+        time_period = analysis_date if analysis_date else "последние 24 часа"
+        
         final_prompt = f"""
-        Based on the following analyses of individual material parts, create a unified daily news summary for the last 24 hours in the category {category}.
+        Based on the following analyses of individual material parts, create a unified daily news summary for {time_period} in the category {category}.
 
         Part analyses:
         {chunk_analyses}
 
         Format the response as follows:
 
-        📆 News Summary — {category} ({analysis_date})
+        📆 News Summary — {category} ({display_date})
 
         🎮 Main Events:
         [For each major news item]

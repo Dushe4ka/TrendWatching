@@ -96,8 +96,7 @@ def send_telegram_digest(self, channel_id: int, digest_id: str, category: str) -
         # Выполняем анализ новостей для категории
         today = datetime.now().strftime('%Y-%m-%d')
         result = analyze_trend(
-            category=category,
-            analysis_date=today
+            category=category
         )
         
         if result['status'] == 'success':
@@ -205,8 +204,7 @@ def send_test_digest(self, channel_id: int, category: str = "Видеоигры"
         # Выполняем анализ новостей для категории
         today = datetime.now().strftime('%Y-%m-%d')
         result = analyze_trend(
-            category=category,
-            analysis_date=today
+            category=category
         )
         
         if result['status'] == 'success':

@@ -129,7 +129,8 @@ def generate_daily_digests(self):
         for category in all_categories:
             logger.info(f"Анализ категории {category}")
             try:
-                result = analyze_trend(category=category, analysis_date=current_date)
+                # Для автоматических дайджестов используем данные за последние 24 часа
+                result = analyze_trend(category=category)
                 if result['status'] == 'success':
                     digest_text = (
                         f"📌 Категория: {category}\n"

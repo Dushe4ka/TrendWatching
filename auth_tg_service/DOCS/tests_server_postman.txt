@@ -1,0 +1,140 @@
+Отлично! Вот подробная инструкция для проверки работы микросервиса через Postman, а также 
+как запустить проект и как сделать так, чтобы при запуске `main.py` автоматически стартовал сервер.
+
+---
+
+## 1. Как запустить проект
+
+### a) Установи зависимости
+
+pip install -r requirements.txt
+
+
+### b) Запусти Celery worker
+(В отдельном терминале, из папки `auth_tg_service`)
+
+celery -A celery_app.celery_config worker --loglevel=info
+
+
+### c) Запусти FastAPI сервер
+Вариант 1 (рекомендуется):
+
+uvicorn main:app --reload
+
+Вариант 2 (по твоей просьбе):
+- Я могу добавить в `main.py` автозапуск uvicorn, чтобы можно было просто сделать:
+
+python main.py
+
+---
+
+## 2. Примеры запросов для Postman
+
+### a) Запросить код авторизации
+
+POST http://localhost:8000/auth/request_code
+Content-Type: application/json
+
+{
+  "phone_number": "+79991234567",
+  "api_id": 123456,
+  "api_hash": "your_api_hash",
+  "admin_chat_id": "123456789"
+}
+
+
+### b) Подтвердить код
+
+POST http://localhost:8000/auth/confirm_code
+Content-Type: application/json
+
+{
+  "phone_number": "+79991234567",
+  "code": "12345",
+  "api_id": 123456,
+  "api_hash": "your_api_hash",
+  "admin_chat_id": "123456789"
+}
+
+Если присутвстует 2FA, то подтвеждаем:
+
+POST http://localhost:8000/auth/confirm_password
+Content-Type: application/json
+
+{
+  "phone_number": "+79991234567",
+  "password": "your_2fa_password",
+  "api_id": 123456,
+  "api_hash": "your_api_hash",
+  "admin_chat_id": "123456789"
+}
+
+
+### c) Получить статус всех сессий
+
+GET http://localhost:8000/auth/status
+
+
+### d) Получить статус конкретной сессии
+
+GET http://localhost:8000/auth/session_status?phone_number=+79991234567
+
+
+### e) Удалить сессию
+
+POST http://localhost:8000/auth/remove_session
+Content-Type: application/json
+
+{
+  "phone_number": "+79991234567"
+}
+
+
+### f) Распределить каналы вручную
+
+POST http://localhost:8000/auth/distribute_channels
+Content-Type: application/json
+
+{
+  "channels": ["channel1", "channel2", "channel3"]
+}
+
+
+### g) Распределить каналы из базы blackbox
+
+POST http://localhost:8000/auth/distribute_channels_from_db
+Content-Type: application/json
+
+{}
+
+
+---
+
+## 3. Как сделать автозапуск uvicorn из main.py
+
+Добавь в конец файла `main.py` следующий код:
+
+python
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+Теперь можно запускать сервер командой:
+
+python main.py
+
+
+---
+
+## 4. Проверка
+
+- Убедись, что MongoDB и Redis запущены.
+- Проверь переменные окружения (`.env` или через config.py).
+- Запусти Celery worker и FastAPI сервер.
+- Используй Postman для отправки запросов по примерам выше.
+
+---
+
+Если нужно — могу сразу добавить автозапуск uvicorn в main.py.  
+Дай знать, если что-то не работает или нужна помощь с тестом!
