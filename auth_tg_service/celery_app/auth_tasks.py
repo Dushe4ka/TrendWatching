@@ -25,11 +25,9 @@ ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
-# Redis клиент
-REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-REDIS_DB = int(os.getenv('REDIS_DB', 0))
-redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+# Redis клиент - используем тот же URL что и Celery
+from config import REDIS_BROKER_URL
+redis_client = redis.from_url(REDIS_BROKER_URL, decode_responses=True)
 
 AUTH_STATE_KEY_PREFIX = "telegram_auth_state:"
 

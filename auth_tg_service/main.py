@@ -348,11 +348,9 @@ def check_auth_state(phone_number: str = Query(..., examples=["+79991234567"])):
         import redis
         import json
         
-        # Redis клиент
-        REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-        REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-        REDIS_DB = int(os.getenv('REDIS_DB', 0))
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+        # Redis клиент - используем тот же URL что и Celery
+        from config import REDIS_BROKER_URL
+        redis_client = redis.from_url(REDIS_BROKER_URL, decode_responses=True)
         
         auth_key = f"telegram_auth_state:{phone_number}"
         state_raw = redis_client.get(auth_key)
@@ -384,11 +382,9 @@ def clear_auth_state(phone_number: str = Query(..., examples=["+79991234567"])):
     try:
         import redis
         
-        # Redis клиент
-        REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
-        REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-        REDIS_DB = int(os.getenv('REDIS_DB', 0))
-        redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, decode_responses=True)
+        # Redis клиент - используем тот же URL что и Celery
+        from config import REDIS_BROKER_URL
+        redis_client = redis.from_url(REDIS_BROKER_URL, decode_responses=True)
         
         auth_key = f"telegram_auth_state:{phone_number}"
         deleted = redis_client.delete(auth_key)
