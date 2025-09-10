@@ -147,73 +147,50 @@ class SourceParser:
         log.info(f"✅ RSS парсинг завершен. Всего спаршено: {total_saved}")
         
         return results
-    
-    async def parse_telegram_sources(self, tg_sources: List[Dict[str, Any]], 
-                                   sessions: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
+
+    async def parse_telegram_sources(self, tg_sources: List[Dict[str, Any]],
+                                     sessions: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
         """
-        Парсит Telegram источники с распределением по сессиям
-        
+        Парсит Telegram источники по каналам, указанным в сессиях.
+
         Args:
-            tg_sources: Список Telegram источников
+            tg_sources: Список Telegram источников (может быть пустым, только для совместимости)
             sessions: Список активных сессий
-            
+
         Returns:
             Dict: Результаты парсинга по источникам и сессиям
         """
-        log.info(f"Начинаем парсинг {len(tg_sources)} Telegram источников с {len(sessions)} сессиями")
-        
+        log.info(f"Начинаем парсинг Telegram источников по каналам из сессий ({len(sessions)} сессий)")
+
+        results = {}
+
         if not sessions:
             log.warning("Нет активных сессий для парсинга Telegram")
-            return {}
-        
-        # Логируем информацию о сессиях
-        for i, session in enumerate(sessions):
-            phone = session.get('phone_number', 'Unknown')
-            channels_count = len(session.get('channels', []))
-            log.info(f"Сессия {i+1}: {phone}, каналов: {channels_count}")
-        
-        results = {}
-        tasks = []
-        
-        for source in tg_sources:
-            url = source.get('url')
-            category = source.get('category', 'general')
-            
-            if not url:
-                log.warning(f"Пропускаем источник без URL: {source}")
+            return results
+
+        for session in sessions:
+            session_phone = session.get("phone_number", "Unknown")
+            session_channels = session.get("channels", [])
+
+            if not session_channels:
+                log.warning(f"Сессия {session_phone} не имеет каналов для парсинга")
                 continue
-                
-            log.info(f"Создаем задачу для парсинга Telegram: {url}")
-            task = parse_tg_channel_distributed(
-                channel=url,
-                category=category,
-                sessions=sessions,
-                parsed_data_collection=self.parsed_data_collection,
-                limit=50
-            )
-            tasks.append((url, task))
-        
-        # Выполняем задачи параллельно
-        if tasks:
-            urls, coroutines = zip(*tasks)
-            results_list = await asyncio.gather(*coroutines, return_exceptions=True)
-            
-            for url, result in zip(urls, results_list):
-                if isinstance(result, Exception):
-                    log.error(f"❌ Ошибка при парсинге Telegram {url}: {result}")
-                    results[url] = None
-                else:
-                    log.info(f"✅ Успешно спаршен Telegram {url}: {result}")
-                    results[url] = result
-        
-        total_saved = sum(
-            sum(r.values()) if r and isinstance(r, dict) else 0 
-            for r in results.values() if r is not None
-        )
+
+            log.info(f"🚀 Парсим для сессии {session_phone} с {len(session_channels)} каналами")
+
+            cleaned_sources = clean_mongodb_data(session_channels)
+            session_result = await self.parse_telegram_sources_with_session(cleaned_sources, session_phone)
+
+            # Результат сохраняем по URL канала
+            results.update(session_result)
+
+            log.info(f"✅ Сессия {session_phone} завершена. Спаршено: {sum(session_result.values())}")
+
+        total_saved = sum(results.values())
         log.info(f"✅ Telegram парсинг завершен. Всего спаршено: {total_saved}")
-        
+
         return results
-    
+
     async def parse_telegram_sources_with_session(self, sources: list, session_phone: str) -> dict:
         """
         Парсит Telegram источники используя конкретную сессию
