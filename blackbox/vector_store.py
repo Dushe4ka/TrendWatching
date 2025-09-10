@@ -248,7 +248,7 @@ class VectorStore:
         self,
         query_vector: List[float],
         score_threshold: float = 0.7,
-        limit: Optional[int] = None,
+        limit: Optional[int] = 500,
         category: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None
@@ -294,7 +294,7 @@ class VectorStore:
                 query_vector=query_vector,
                 query_filter=Filter(must=filters) if filters else None,
                 score_threshold=score_threshold,
-                limit=limit if limit is not None else 1000000  # Если limit не указан, используем максимальное значение
+                limit=limit if limit is not None else 500  # Если limit не указан, используем максимальное значение
             )
             
             # Преобразование результатов в нужный формат
@@ -366,8 +366,8 @@ class VectorStore:
             categories = set()
             for point in points:
                 category = point.payload.get("category", "")
-                if category:
-                    categories.add(category)
+                # Добавляем все категории, включая пустые строки
+                categories.add(category)
             
             logger.info(f"Найдено {len(categories)} уникальных категорий")
             return sorted(list(categories))
@@ -515,7 +515,7 @@ class VectorStore:
                 scroll_filter=filter_conditions,
                 with_payload=True,
                 with_vectors=False,
-                limit=1000000  # Устанавливаем большой лимит, чтобы получить все результаты
+                limit=500  # Устанавливаем большой лимит, чтобы получить все результаты
             )
             
             # Преобразуем результаты в нужный формат
@@ -582,7 +582,7 @@ class VectorStore:
                 scroll_filter=filter_conditions,
                 with_payload=True,
                 with_vectors=False,
-                limit=1000000  # Устанавливаем большой лимит, чтобы получить все результаты
+                limit=500  # Устанавливаем большой лимит, чтобы получить все результаты
             )
             
             # Преобразуем результаты в нужный формат
