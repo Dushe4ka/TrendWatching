@@ -1,4 +1,5 @@
 from celery.schedules import crontab
+from celery import Celery
 
 # Настройки брокера и бэкенда - используем разные базы данных Redis для разных сервисов
 broker_url = 'redis://:Ollama12357985@127.0.0.1:14571/0'
