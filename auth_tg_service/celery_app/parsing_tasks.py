@@ -205,93 +205,57 @@ def parse_telegram_with_session_task(session_phone: str, sources: list, chat_id:
 @celery_app.task
 @monitor_performance
 def parse_sources_task(limit: int = None, chat_id: str = None):
-    """Парсит все источники (RSS + Telegram) с распределением по сессиям"""
+    """Парсит все источники (RSS + Telegram) с использованием каналов из сессий"""
     import time
     start_time = time.time()
-    
+
     async def inner():
         try:
             parsed_data_collection = db["parsed_data"]
             parser = SourceParser(parsed_data_collection, blackbox_db)
-            
+
             # Получаем источники и сессии
             sources = await parser.get_available_sources(limit)
             sessions = await parser.get_active_sessions()
-            
+
             log.info(f"📊 Получено {len(sources)} источников и {len(sessions)} сессий")
-            
+
             if not sources:
                 log.warning("Нет источников для парсинга")
                 return {"error": "Нет источников для парсинга"}
-            
+
             # Категоризируем источники
             categorized = parser.categorize_sources(sources)
             log.info(f"📋 Категоризировано: {len(categorized['rss'])} RSS, {len(categorized['telegram'])} Telegram")
-            
-            # Парсим RSS
+
+            # Парсим RSS источники
             log.info("📰 Начинаем парсинг RSS источников")
             rss_results = await parser.parse_rss_sources(categorized['rss'])
             total_rss = sum(r for r in rss_results.values() if r is not None)
             log.info(f"✅ RSS парсинг завершен. Спаршено: {total_rss}")
-            
-            # Распределяем Telegram источники по сессиям
-            tg_sources = categorized['telegram']
-            if tg_sources and sessions:
-                log.info(f"📱 Начинаем парсинг {len(tg_sources)} Telegram источников с {len(sessions)} сессиями")
-                
-                # Распределяем источники по сессиям
-                sources_per_session = len(tg_sources) // len(sessions)
-                remaining = len(tg_sources) % len(sessions)
-                
-                log.info(f"📊 Распределение: {sources_per_session} источников на сессию, {remaining} остаток")
-                
-                distributed_sources = []
-                start_idx = 0
-                for i, session in enumerate(sessions):
-                    count = sources_per_session + (1 if i < remaining else 0)
-                    session_sources = tg_sources[start_idx:start_idx + count]
-                    session_phone = session.get('phone_number', 'Unknown')
-                    distributed_sources.append((session_phone, session_sources))
-                    start_idx += count
-                
-                log.info(f"📊 Распределено {len(tg_sources)} Telegram источников по {len(sessions)} сессиям")
-                for session_phone, session_sources in distributed_sources:
-                    log.info(f"📱 Сессия {session_phone}: {len(session_sources)} источников")
-                
-                # Парсим Telegram источники напрямую, без создания отдельных задач
-                tg_results = []
-                total_tg = 0
-                
-                for session_phone, session_sources in distributed_sources:
-                    if session_sources:  # Только если есть источники для этой сессии
-                        log.info(f"🚀 Парсим для сессии {session_phone} с {len(session_sources)} источниками")
-                        
-                        # Очищаем источники от ObjectId
-                        cleaned_session_sources = clean_mongodb_data(session_sources)
-                        
-                        # Парсим напрямую
-                        result = await parser.parse_telegram_sources_with_session(cleaned_session_sources, session_phone)
-                        
-                        session_total = sum(result.values()) if result else 0
-                        total_tg += session_total
-                        
-                        tg_results.append({
-                            "session_phone": session_phone,
-                            "sources": cleaned_session_sources,
-                            "parsed": session_total,
-                            "results": result
-                        })
-                        
-                        log.info(f"✅ Сессия {session_phone} завершена. Спаршено: {session_total}")
-                
-                log.info(f"✅ Telegram парсинг завершен. Всего спаршено: {total_tg}")
-            else:
-                log.warning("⚠️ Нет Telegram источников или сессий для парсинга")
-                total_tg = 0
-                tg_results = []
-            
+
+            # Парсим Telegram источники по каналам из сессий
+            tg_results = []
+            total_tg = 0
+            for session in sessions:
+                session_phone = session.get("phone_number", "Unknown")
+                session_channels = session.get("channels", [])
+                if session_channels:
+                    log.info(f"🚀 Парсим для сессии {session_phone} с {len(session_channels)} каналами")
+                    cleaned_session_sources = clean_mongodb_data(session_channels)
+                    result = await parser.parse_telegram_sources_with_session(cleaned_session_sources, session_phone)
+                    session_total = sum(result.values()) if result else 0
+                    total_tg += session_total
+                    tg_results.append({
+                        "session_phone": session_phone,
+                        "sources": cleaned_session_sources,
+                        "parsed": session_total,
+                        "results": result
+                    })
+                    log.info(f"✅ Сессия {session_phone} завершена. Спаршено: {session_total}")
+
             execution_time = time.time() - start_time
-            
+
             result = {
                 "total_sources": len(sources),
                 "rss_sources": len(categorized['rss']),
@@ -304,21 +268,18 @@ def parse_sources_task(limit: int = None, chat_id: str = None):
                 "telegram_results": tg_results,
                 "execution_time": f"{execution_time:.2f}s"
             }
-            
+
             log.info(f"🎉 Парсинг завершен! Всего спаршено: {result['total_parsed']}")
-            
-            # Отправляем статистику в Telegram
+
             await send_parsing_stats_to_telegram(result, chat_id)
-            
             return result
-            
+
         except Exception as e:
             log.error(f"❌ Ошибка при парсинге источников: {e}")
-            log.error(f"❌ Тип ошибки: {type(e).__name__}")
             import traceback
             log.error(f"❌ Traceback: {traceback.format_exc()}")
             return {"error": str(e)}
-    
+
     return run_async(inner)
 
 @celery_app.task
@@ -372,87 +333,50 @@ def parse_rss_sources_task(limit: int = 50, chat_id: str = None):
 @celery_app.task
 @monitor_performance
 def parse_telegram_sources_task(limit: int = 50, chat_id: str = None):
-    """Парсит только Telegram источники с распределением по сессиям"""
+    """Парсит только Telegram источники по каналам из сессий"""
     import time
     start_time = time.time()
-    
+
     async def inner():
         try:
             parsed_data_collection = db["parsed_data"]
             parser = SourceParser(parsed_data_collection, blackbox_db)
-            
+
             # Получаем источники и сессии
             sources = await parser.get_available_sources(limit)
             sessions = await parser.get_active_sessions()
-            
+
             log.info(f"📊 Получено {len(sources)} источников и {len(sessions)} сессий")
-            
+
             if not sources:
                 log.warning("Нет источников для парсинга")
                 return {"error": "Нет источников для парсинга"}
-            
-            # Категоризируем источники
+
             categorized = parser.categorize_sources(sources)
             log.info(f"📋 Категоризировано: {len(categorized['rss'])} RSS, {len(categorized['telegram'])} Telegram")
-            
-            # Парсим только Telegram источники
-            tg_sources = categorized['telegram']
-            if tg_sources and sessions:
-                log.info(f"📱 Начинаем парсинг {len(tg_sources)} Telegram источников с {len(sessions)} сессиями")
-                
-                # Распределяем источники по сессиям
-                sources_per_session = len(tg_sources) // len(sessions)
-                remaining = len(tg_sources) % len(sessions)
-                
-                log.info(f"📊 Распределение: {sources_per_session} источников на сессию, {remaining} остаток")
-                
-                distributed_sources = []
-                start_idx = 0
-                for i, session in enumerate(sessions):
-                    count = sources_per_session + (1 if i < remaining else 0)
-                    session_sources = tg_sources[start_idx:start_idx + count]
-                    session_phone = session.get('phone_number', 'Unknown')
-                    distributed_sources.append((session_phone, session_sources))
-                    start_idx += count
-                
-                log.info(f"📊 Распределено {len(tg_sources)} Telegram источников по {len(sessions)} сессиям")
-                for session_phone, session_sources in distributed_sources:
-                    log.info(f"📱 Сессия {session_phone}: {len(session_sources)} источников")
-                
-                # Парсим Telegram источники напрямую, без создания отдельных задач
-                tg_results = []
-                total_tg = 0
-                
-                for session_phone, session_sources in distributed_sources:
-                    if session_sources:  # Только если есть источники для этой сессии
-                        log.info(f"🚀 Парсим для сессии {session_phone} с {len(session_sources)} источниками")
-                        
-                        # Очищаем источники от ObjectId
-                        cleaned_session_sources = clean_mongodb_data(session_sources)
-                        
-                        # Парсим напрямую
-                        result = await parser.parse_telegram_sources_with_session(cleaned_session_sources, session_phone)
-                        
-                        session_total = sum(result.values()) if result else 0
-                        total_tg += session_total
-                        
-                        tg_results.append({
-                            "session_phone": session_phone,
-                            "sources": cleaned_session_sources,
-                            "parsed": session_total,
-                            "results": result
-                        })
-                        
-                        log.info(f"✅ Сессия {session_phone} завершена. Спаршено: {session_total}")
-                
-                log.info(f"✅ Telegram парсинг завершен. Всего спаршено: {total_tg}")
-            else:
-                log.warning("⚠️ Нет Telegram источников или сессий для парсинга")
-                total_tg = 0
-                tg_results = []
-            
+
+            # Парсим Telegram источники только из channels сессий
+            tg_results = []
+            total_tg = 0
+            for session in sessions:
+                session_phone = session.get("phone_number", "Unknown")
+                session_channels = session.get("channels", [])
+                if session_channels:
+                    log.info(f"🚀 Парсим для сессии {session_phone} с {len(session_channels)} каналами")
+                    cleaned_session_sources = clean_mongodb_data(session_channels)
+                    result = await parser.parse_telegram_sources_with_session(cleaned_session_sources, session_phone)
+                    session_total = sum(result.values()) if result else 0
+                    total_tg += session_total
+                    tg_results.append({
+                        "session_phone": session_phone,
+                        "sources": cleaned_session_sources,
+                        "parsed": session_total,
+                        "results": result
+                    })
+                    log.info(f"✅ Сессия {session_phone} завершена. Спаршено: {session_total}")
+
             execution_time = time.time() - start_time
-            
+
             stats = {
                 "total_sources": len(sources),
                 "rss_sources": len(categorized['rss']),
@@ -463,25 +387,22 @@ def parse_telegram_sources_task(limit: int = 50, chat_id: str = None):
                 "total_parsed": total_tg,
                 "execution_time": f"{execution_time:.2f}s"
             }
-            
+
             log.info(f"✅ Telegram парсинг завершен. Всего спаршено: {total_tg}")
-            
-            # Отправляем статистику в Telegram
+
             await send_parsing_stats_to_telegram(stats, chat_id)
-            
             return {
                 "telegram_sources": len(categorized['telegram']),
                 "telegram_parsed": total_tg,
                 "telegram_results": tg_results
             }
-            
+
         except Exception as e:
             log.error(f"❌ Ошибка при парсинге Telegram источников: {e}")
-            log.error(f"❌ Тип ошибки: {type(e).__name__}")
             import traceback
             log.error(f"❌ Traceback: {traceback.format_exc()}")
             return {"error": str(e)}
-    
+
     return run_async(inner)
 
 @celery_app.task
