@@ -69,6 +69,11 @@ task_reject_on_worker_lost = True  # Отклонение задачи при п
 task_default_retry_delay = 300  # Задержка перед повторной попыткой (5 минут)
 task_max_retries = 3  # Максимальное количество повторных попыток
 
+celery_app = Celery(
+    'blackbox',
+    broker=broker_url,
+    backend=result_backend
+)
 
 # Применяем конфигурацию
 celery_app.conf.update(
