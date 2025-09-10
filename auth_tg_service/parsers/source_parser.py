@@ -196,7 +196,7 @@ class SourceParser:
         Парсит Telegram источники используя конкретную сессию
         
         Args:
-            sources: Список Telegram источников
+            sources: Список Telegram источников (может быть список строк или список словарей)
             session_phone: Номер телефона сессии
             
         Returns:
@@ -223,8 +223,22 @@ class SourceParser:
         
         for i, source in enumerate(sources):
             try:
-                source_url = source.get('url', '')
-                category = source.get('category', 'general')
+                # Обрабатываем как строки, так и словари
+                if isinstance(source, str):
+                    # Если source - это строка (URL канала)
+                    source_url = source
+                    category = 'general'
+                elif isinstance(source, dict):
+                    # Если source - это словарь
+                    source_url = source.get('url', '')
+                    category = source.get('category', 'general')
+                else:
+                    log.warning(f"⚠️ Неизвестный тип источника: {type(source)}")
+                    continue
+                
+                if not source_url:
+                    log.warning(f"⚠️ Пустой URL источника: {source}")
+                    continue
                 
                 log.info(f"📱 Парсим источник {i+1}/{len(sources)}: {source_url}")
                 
@@ -246,9 +260,11 @@ class SourceParser:
                     log.warning(f"⚠️ Не удалось спарсить {source_url}")
                     
             except Exception as e:
-                log.error(f"❌ Ошибка при парсинге {source.get('url', '')}: {e}")
+                # Безопасное получение URL для логирования
+                source_url_for_log = source if isinstance(source, str) else source.get('url', '') if isinstance(source, dict) else str(source)
+                log.error(f"❌ Ошибка при парсинге {source_url_for_log}: {e}")
                 log.error(f"❌ Тип ошибки: {type(e).__name__}")
-                results[source.get('url', '')] = 0
+                results[source_url_for_log] = 0
         
         total_parsed = sum(results.values())
         log.info(f"🎉 Парсинг с сессией {session_phone} завершен. Всего спаршено: {total_parsed}")
