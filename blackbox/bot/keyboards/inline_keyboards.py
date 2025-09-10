@@ -1,7 +1,7 @@
 from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
 from bot.utils.misc import category_to_callback  # Импортируем правильную функцию
 from typing import List, Dict, Set, Any
-import aiogram.types as types, InlineKeyboardMarkup, InlineKeyboardButton
+import aiogram.types as types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.utils.callback_utils import create_digest_callback
 from urllib.parse import urlparse
