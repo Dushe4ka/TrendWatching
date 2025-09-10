@@ -1,8 +1,8 @@
 from celery.schedules import crontab
 
 # Настройки брокера и бэкенда - используем разные базы данных Redis для разных сервисов
-broker_url = 'redis://localhost:6379/0'
-result_backend = 'redis://localhost:6379/0'
+broker_url = 'redis://:Ollama12357985@127.0.0.1:14571/0'
+result_backend = 'redis://:Ollama12357985@127.0.0.1:14571/0'
 
 # Настройки задач
 task_serializer = 'json'
@@ -62,7 +62,37 @@ imports = (
 
 # Дополнительные настройки для отладки
 task_track_started = True
-task_time_limit = 7200  # Максимальное время выполнения задачи (1 час)
-task_soft_time_limit = 6000  # Мягкое ограничение времени (50 минут)
+task_time_limit = 7200  # Максимальное время выполнения задачи (2 часа)
+task_soft_time_limit = 6000  # Мягкое ограничение времени (100 минут)
 task_acks_late = True  # Подтверждение задачи только после выполнения
-task_reject_on_worker_lost = True  # Отклонение задачи при потере воркера 
+task_reject_on_worker_lost = True  # Отклонение задачи при потере воркера
+task_default_retry_delay = 300  # Задержка перед повторной попыткой (5 минут)
+task_max_retries = 3  # Максимальное количество повторных попыток
+
+
+# Применяем конфигурацию
+celery_app.conf.update(
+    task_serializer=task_serializer,
+    result_serializer=result_serializer,
+    accept_content=accept_content,
+    timezone=timezone,
+    enable_utc=enable_utc,
+    worker_pool=worker_pool,
+    worker_concurrency=worker_concurrency,
+    worker_prefetch_multiplier=worker_prefetch_multiplier,
+    worker_max_tasks_per_child=worker_max_tasks_per_child,
+    worker_max_memory_per_child=worker_max_memory_per_child,
+    worker_log_format=worker_log_format,
+    worker_task_log_format=worker_task_log_format,
+    beat_schedule=beat_schedule,
+    beat_max_loop_interval=beat_max_loop_interval,
+    beat_sync_every=beat_sync_every,
+    imports=imports,
+    task_track_started=task_track_started,
+    task_time_limit=task_time_limit,
+    task_soft_time_limit=task_soft_time_limit,
+    task_acks_late=task_acks_late,
+    task_reject_on_worker_lost=task_reject_on_worker_lost,
+    task_default_retry_delay=task_default_retry_delay,
+    task_max_retries=task_max_retries,
+)
