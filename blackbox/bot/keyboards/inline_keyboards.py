@@ -5,6 +5,8 @@ import aiogram.types as types, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.utils.callback_utils import create_digest_callback
 from urllib.parse import urlparse
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 
 def get_dynamic_main_menu_keyboard(permissions: dict) -> InlineKeyboardMarkup:
