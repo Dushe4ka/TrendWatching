@@ -139,71 +139,72 @@ def get_add_more_sources_keyboard(source_type: str):
         ]
     )
 
-def create_sources_pagination_keyboard(sources: List[Dict], category_filter: str = "all", page: int = 0, sources_per_page: int = 10):
+def create_sources_pagination_keyboard(
+    sources: List[Dict], category_filter: str = "all", page: int = 0, sources_per_page: int = 10
+) -> InlineKeyboardMarkup:
     """Создает клавиатуру с пагинацией для управления источниками"""
-    # Добавляем логирование для отладки
     print(f"🔍 [DEBUG] create_sources_pagination_keyboard: category_filter={category_filter}, page={page}")
-    
+
     total_sources = len(sources)
     total_pages = (total_sources + sources_per_page - 1) // sources_per_page
-    
+
     if total_sources == 0:
         return InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="← Назад", callback_data="menu_sources")]]
         )
-    
+
     # Ограничиваем страницу
     page = max(0, min(page, total_pages - 1))
-    
+
     # Получаем источники для текущей страницы
     start_idx = page * sources_per_page
     end_idx = min(start_idx + sources_per_page, total_sources)
     page_sources = sources[start_idx:end_idx]
-    
+
     # Создаем кнопки для источников
     keyboard_rows = []
     for i, src in enumerate(page_sources):
         source_idx = start_idx + i
-        source_type = src.get('type', '?')
-        source_url = src.get('url', '')
-        # Обрезаем URL для отображения
-        display_url = source_url[:30] + "..." if len(source_url) > 30 else source_url
-        
-        # category_filter уже является хешем, не хешируем повторно
+        source_type = src.get("type", "?")
+        source_url = src.get("url", "")
+
+        # Текст для кнопки: тип + домен
+        parsed = urlparse(source_url)
+        display_url = f"{source_type}: {parsed.netloc}" if parsed.netloc else f"{source_type}: ссылка"
+
         keyboard_rows.append([
             InlineKeyboardButton(
-                text=f"{source_type}: {display_url}", 
-                callback_data=f"noop_{category_filter}_{source_idx}_{page}"
+                text=display_url,
+                url=source_url  # кнопка-ссылка
             ),
             InlineKeyboardButton(
-                text="❌", 
+                text="❌",  # маленькая кнопка удаления
                 callback_data=f"delete_source_{category_filter}_{source_idx}_{page}"
             )
         ])
-    
+
     # Добавляем навигационные кнопки
     nav_buttons = []
-    
+
     # Кнопка "Предыдущая страница"
     if page > 0:
         nav_buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"sources_page_{category_filter}_{page-1}"))
-    
+
     # Информация о странице
-    nav_buttons.append(InlineKeyboardButton(
-        text=f"{page+1}/{total_pages}", 
-        callback_data="noop_page_info"
-    ))
-    
+    nav_buttons.append(
+        InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="noop_page_info")
+    )
+
     # Кнопка "Следующая страница"
     if page < total_pages - 1:
         nav_buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"sources_page_{category_filter}_{page+1}"))
-    
+
     if nav_buttons:
         keyboard_rows.append(nav_buttons)
-    
+
     # Кнопка "Назад"
     keyboard_rows.append([InlineKeyboardButton(text="← Назад", callback_data="menu_sources")])
-    
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
 # Клавиатуры для анализа
